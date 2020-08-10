@@ -347,20 +347,33 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--identifier", dest="identifier",type=str, default='Baseline_PINN',
     help='Unique String that descripes the job. This String is used to create folder for tensorboard and models')
-    parser.add_argument("--batchsize", dest="batchsize", type=int, default=5000)
-    parser.add_argument("--numBatches", dest="numBatches", type=int,default=400)
-    parser.add_argument("--initsize", dest="initSize", type=int, default=8500)
-    parser.add_argument("--numLayers", dest="numLayers", type=int,default=8)
-    parser.add_argument("--numFeatures", dest="numFeatures", type=int,default=300)
-    parser.add_argument("--epochsSolution", dest="epochsSolution", type=int, default=500)
-    parser.add_argument("--epochsPDE", dest="epochsPDE", type=int, default=3500)
-    parser.add_argument("--pretraining", dest="pretraining", type=int, default=1)
-    parser.add_argument("--alpha",dest="alpha",type=float, default=12)
-    parser.add_argument("--lhs",dest="lhs",type=int,default=1)
-    parser.add_argument("--pdata",dest="pdata", type=str, default='data/')
-    parser.add_argument("--modelpath",dest='modelpath',type=str, default='models/')
-    parser.add_argment("--tensorboard",dest='tensorboard',type=str, default='tensorboard/')
-    parser.add_argment("--nx",dest='nx',type=int, default=200)
+    parser.add_argument("--batchsize", dest="batchsize", type=int, default=5000,
+    help='Number of datapoints per batch')
+    parser.add_argument("--numBatches", dest="numBatches", type=int,default=400,
+    help='Number of used batches per epoch')
+    parser.add_argument("--initsize", dest="initSize", type=int, default=8500,
+    help='Number of datapoints for the initial condition')
+    parser.add_argument("--numLayers", dest="numLayers", type=int,default=8,
+    help='Number of layers for the MLP')
+    parser.add_argument("--numFeatures", dest="numFeatures", type=int,default=300,
+    help='Number of neurons per layer')
+    parser.add_argument("--epochsSolution", dest="epochsSolution", type=int, default=500,
+    help='Number of epochs for pretraining')
+    parser.add_argument("--epochsPDE", dest="epochsPDE", type=int, default=3500,
+    help='Number of epochs for PDE training')
+    parser.add_argument("--pretraining", dest="pretraining", type=int, default=1,
+    help='Deactivates(0) or Activates(1) the pretraining step")
+    parser.add_argument("--alpha",dest="alpha",type=float, default=12,
+    help='Weighting for the initial state')
+    parser.add_argument("--lhs",dest="lhs",type=int,default=1,
+    help='Deactivates(0) or Activates(1) the lhs sampling')
+    parser.add_argument("--pdata",dest="pdata", type=str, default='data/',
+    help='Path to initial data')
+    parser.add_argument("--modelpath",dest='modelpath',type=str, default='models/',
+    help='Path for model saving')
+    parser.add_argment("--tensorboard",dest='tensorboard',type=str, default='tensorboard/',
+    help='Path for tensoarboard logging')
+    parser.add_argment("--nx",dest='nx',type=int, default=200,
     parser.add_argment("--ny",dest='ny',type=int, default=200)
     parser.add_argment("--xmin",dest='xmin',type=float, default=-3.)
     parser.add_argment("--xmax",dest='xmax',type=float, default=+3.)
@@ -370,8 +383,10 @@ if __name__ == "__main__":
     parser.add_argment("--nt",dest='nt',type=int, default=1000)
     parser.add_argment("--integral_x",dest='sampling_x',type=int, default=100)
     parser.add_argment("--integral_y",dest='sampling_y',type=int, default=100)
-    parser.add_argument("--lr_solution",dest="lr_solution",type=float,default=3e-5)
-    parser.add_argument("--lr_pde",dest="lr_pde",type=float,default=9e-6)
+    parser.add_argument("--lr_solution",dest="lr_solution",type=float,default=3e-5,
+    help='Learning Rate for pretraining')
+    parser.add_argument("--lr_pde",dest="lr_pde",type=float,default=9e-6,
+    help='Learning Rate for pde raining')
   
     if hvd.rank() == 0: 
         print("-" * 10 + "-" * len(args.identifier) + "-" * 10)
@@ -491,10 +506,16 @@ if __name__ == "__main__":
         valLoss0 = valLoss(model, 0, coordinateSystem)
         valLoss250 = valLoss(model, 250, coordinateSystem)
         valLoss500 = valLoss(model, 500, coordinateSystem)
+        valLoss750 = valLoss(model, 750, coordinateSystem)
+        valLoss1000 = valLoss(model, 1000, coordinateSystem)
 
-        metric = {'hparam/SimLoss': loss.item(),
-                  'hparam/valLoss0': valLoss0,
-                  'hparam/valLoss250': valLoss250,
-                  'hparam/valLoss500': valLoss500}
+        metric = {
+            'hparam/SimLoss': loss.item(),
+            'hparam/valLoss0': valLoss0,
+            'hparam/valLoss250': valLoss250,
+            'hparam/valLoss500': valLoss500,
+            'hparam/valLoss750': valLoss750,
+            'hparam/valLoss1000':valLoss1000
+            }
 
         log_writer.add_hparams(hParams, metric)
