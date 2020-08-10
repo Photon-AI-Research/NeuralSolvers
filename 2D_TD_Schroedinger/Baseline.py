@@ -429,11 +429,13 @@ if __name__ == "__main__":
 
     model = SchrodingerNet(args.numLayers, args.numFeatures, ds.lb, ds.ub, args.sampling_x, args_sampling_x, torch.tanh).cuda()
 
-
+    hvd.broadcast_parameters(model.state_dict(), root_rank=0)
     optimizer = optim.Adam(model.parameters(), lr=args.lr_solution)
     optimizer = hvd.DistributedOptimizer(optimizer,
                                          named_parameters=model.named_parameters(),
                                          backward_passes_per_step=1)
+
+    hvd.broadcast_optimizer_state(optimizer, root_rank=0)
 
     if args.pretraining:
         for epoch in range(args.epochsSolution):
