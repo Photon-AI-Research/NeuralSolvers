@@ -47,8 +47,8 @@ class ModifiedPINN(Interface):
 		""" Implement the initial loss """
 		pass
 		
-	def boundardy_loss(self):
-		""" Implement the boundary loss """
+	def pde_loss(self):
+		""" Implement the pde loss """
 		pass
 	
 	def boundardy_loss(self):
