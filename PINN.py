@@ -1,6 +1,6 @@
 import torch.nn as nn
 
-class PINN(nn.Module):
+class Interface(nn.Module):
 
     def forward(self):
         """ Forward step of the PINN """
@@ -11,6 +11,10 @@ class PINN(nn.Module):
         raise NotImplementedError
     
     def boundary_loss(self):
+        """ Calculation of the boundary loss"""
+        raise NotImplementedError
+    
+    def initial_loss(self):
         """ Calculation of the boundary loss"""
         raise NotImplementedError
 
