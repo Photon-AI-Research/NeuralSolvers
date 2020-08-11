@@ -1,7 +1,7 @@
 # NeuralSolvers
 Neural network based solvers for partial differential equations.
 
-##API description
+## API description
 
 ![Test](./images/API_PINN.png)
 
