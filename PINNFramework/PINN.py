@@ -37,7 +37,7 @@ class Interface(nn.Module):
         l_0 = self.interpolation_loss(x_0, u_0,interpolation_criterion)
         l_b = self.boundary_loss(x_b, u_b, boundary_criterion)
         l_f = self.pde_loss(input_x, prediction_u, pred_derivatives, pde_norm)
-        return lambda_0 * l_0 + lambda_b * l_b * lambda_f 
+        return lambda_0 * l_0 + lambda_b * l_b + lambda_f * l_f
         
 
     def boundary_loss(self, u, boundary_u, criterion):
