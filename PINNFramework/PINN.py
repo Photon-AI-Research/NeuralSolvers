@@ -34,19 +34,19 @@ class Interface(nn.Module):
         u_b = prediction_u[len_x0:-len_xf,:]
         u_f = prediction_u[-len_xf:]
         pred_derivatives = self.derivatives(prediction_u, input_x)
-        l_0 = self.interpolation_loss(x_0, u_0,interpolation_criterion)
-        l_b = self.boundary_loss(x_b, u_b, boundary_criterion)
+        l_0 = self.interpolation_loss(u_0, ex_u,interpolation_criterion)
+        l_b = self.boundary_loss(u_b, boundary_u, boundary_criterion)
         l_f = self.pde_loss(input_x, prediction_u, pred_derivatives, pde_norm)
         return lambda_0 * l_0 + lambda_b * l_b + lambda_f * l_f
         
 
-    def boundary_loss(self, u, boundary_u, criterion):
+    def boundary_loss(self, pred_u, boundary_u, criterion):
         """ Calculation of the boundary loss"""
-        return criterion(boundary_u, u)
+        return criterion(pred_u,boundary_u,)
     
     def interpolation_loss(self, pred_u, exact_u, criterion):
         """ Calculation of the boundary loss"""
-        return criterion(exact_u, pred_u)
+        return criterion(pred_u,exact_u)
 
     def pde_loss(self, x, u, derivatives, norm):
         """ Calculation of the pde loss TODO: move the torch zeros to the same device"""
