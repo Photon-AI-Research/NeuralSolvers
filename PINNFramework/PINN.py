@@ -42,7 +42,7 @@ class Interface(nn.Module):
 
     def boundary_loss(self, pred_u, boundary_u, criterion):
         """ Calculation of the boundary loss"""
-        return criterion(pred_u,boundary_u,)
+        return criterion(pred_u,boundary_u)
     
     def interpolation_loss(self, pred_u, exact_u, criterion):
         """ Calculation of the boundary loss"""
