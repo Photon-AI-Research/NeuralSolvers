@@ -53,11 +53,11 @@ class Interface(nn.Module):
         if self.hpm_model:
             return norm(
                 derivatives[:,-self.output_d:]-self.hpm_model(x,u,derivatives),
-                torch.zeros([x.shape[0],self.output_d]))
+                torch.zeros([x.shape[0],self.output_d]).to(derivatives.device))
         else:
             return norm(
                 derivatives[:,-self.output_d:] - self.pde(x,u,derivatives),
-                torch.zeros([x.shape[0],self.output_d]))
+                torch.zeros([x.shape[0],self.output_d]).to(derivatives.device))
         
     def pde(self, x, u, derivatives):
         """
