@@ -11,7 +11,7 @@ class Interface(nn.Module):
         self.output_d = output_d
         self.hpm_model = None
     
-    def forward(self,x):
+    def forward(self, x):
         """ Forward step of the PINN """
         x = self.input_normalization(x)
         return self.model(x)
