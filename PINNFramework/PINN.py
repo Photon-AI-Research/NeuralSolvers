@@ -33,6 +33,7 @@ class Interface(nn.Module):
         u_0 = prediction_u[:len_x0,:]
         u_b = prediction_u[len_x0:-len_xf,:]
         u_f = prediction_u[-len_xf:]
+
         pred_derivatives = self.derivatives(prediction_u, input_x)
         l_0 = self.interpolation_loss(u_0, ex_u,interpolation_criterion)
         l_b = self.boundary_loss(u_b, boundary_u, boundary_criterion)
