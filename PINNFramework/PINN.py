@@ -2,93 +2,89 @@ import torch
 import torch.nn as nn
 
 
-class Interface(nn.Module):
+class PINN(nn.Module):
     
-    def __init__(self, model, input_d, output_d):
-        super(Interface, self).__init__()
-        self.model = model 
-        self.input_d = input_d
-        self.output_d = output_d
-        self.hpm_model = None
+    def __init__(self, model: torch.nn.Module, input_dimension: int , output_dimension: int, pde_loss: PDELoss, initial_condition :InitialCondition, boundary_condition):
+        r"""
+        Initializes an physics-informed neural network(PINN). A PINN consists of a model which represents the solution of the underlying partial differential equation(PDE) u, 
+        three loss terms representing initial (IC) and boundary condtion(BC) and the PDE and a dataset which represents the bounded domain U.
+
+        Args: 
+            model : is the model which is trained to represent the underlying PDE
+            input_dimension : represents the dimension of the input vector x
+            output_dimension : represents the dimension of the solution u
+            pde_loss: Instance of the PDELoss class. Represents the underlying PDE
+            initial_condition: Instance of the InitialCondition class. Represents the initial condition
+            boundary condition (BoundaryCondition, list): Instance of the BoundaryCondition class or a list of instances of the BoundaryCondition class
+
+        """
+
+        super(PINN, self).__init__()
+        # checking if the model is a torch module more model checking should be possible
+        if isinstance(model, nn.Module):
+            self.model = model
+        else:
+            raise TypeError("Only models of type torch.nn.Module are allowed")
+        
+        # checking if the input dimension is well defined 
+        if not type(input_dimension) is int:
+            raise TypeError("Only integers are allowed as input dimension")
+        elif input_dimension <= 0:
+            raise ValueError("Input dimension has to be greater than zero")
+        else:
+            self.input_dimension = input_dimension
+
+        # checking if the output dimension is well defined 
+        if not type(output_dimension) is int:
+            raise TypeError("Only integers are allowed as output dimension")
+        elif input_dimension <= 0:
+            raise ValueError("Input dimension has to be greater than zero")
+        else:
+            self.output_dimension = output_dimension
+
+        if isinstance(pde_loss, PDELoss):
+            self.pde_loss = pde_loss
+        else: 
+            raise TypeError("PDE loss has to be an instance of a PDELoss class")
+            
+        if isinstance(initial_condition, InitialCondition):
+                self.initial_condition = initial_condition
+        else: 
+            raise TypeError("Initial condition has to be an instance of the InitialCondition class")
+
+        if type(boundary_conditions) is list: 
+            for bc in boundary_conditions:
+                if not isinstance(bc,BoundaryCondition):
+                    raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
+            self.boundary_condition = boundary_condition
+        else:
+            if isinstance(boundary_condition,BoundaryCondition):
+                self.boundary_condition = boundary_condition
+            else:
+                raise TypeError("Boundary Condation has to be an instance of the BoundaryCondition class or a list of instances of the BoundaryCondition class")
+
+        # TODO creating dataset from loss function 
+    
+
     
     def forward(self,x):
-        """ Forward step of the PINN """
-        x = self.input_normalization(x)
+        """
+        Predicting the solution at given position x
+        """
         return self.model(x)
-
-    def pinn_loss(self,
-                  x, ex_u, boundary_u,
-                  interpolation_criterion, boundary_criterion, pde_norm, 
-                  lambda_0=1., lambda_b=1., lambda_f=1.):
-        """ Calculating PINN loss"""
-        x_0 = x["x_0"]
-        x_b = x["x_b"]
-        x_f = x["x_f"]
-        len_x0 = x_0.shape[0]
-        len_xb = x_b.shape[0]
-        len_xf = x_f.shape[0]
-        input_x = torch.cat([x_0, x_b, x_f]).float()
-        input_x.requires_grad = True
-        prediction_u = self.forward(input_x)
-        u_0 = prediction_u[:len_x0,:]
-        u_b = prediction_u[len_x0:-len_xf,:]
-        u_f = prediction_u[-len_xf:]
-
-        pred_derivatives = self.derivatives(prediction_u, input_x)
-        l_0 = self.interpolation_loss(u_0, ex_u,interpolation_criterion)
-        l_b = self.boundary_loss(u_b, boundary_u, boundary_criterion)
-        l_f = self.pde_loss(input_x, prediction_u, pred_derivatives, pde_norm)
-        return lambda_0 * l_0 + lambda_b * l_b + lambda_f * l_f
-        
-
-    def boundary_loss(self, pred_u, boundary_u, criterion):
-        """ Calculation of the boundary loss"""
-        return criterion(pred_u,boundary_u)
     
-    def interpolation_loss(self, pred_u, exact_u, criterion):
-        """ Calculation of the boundary loss"""
-        return criterion(pred_u,exact_u)
-
-    def pde_loss(self, x, u, derivatives, norm):
-        """ Calculation of the pde loss TODO: move the torch zeros to the same device"""
-        if self.hpm_model:
-            return norm(
-                derivatives[:,-self.output_d:]-self.hpm_model(x,u,derivatives),
-                torch.zeros([x.shape[0],self.output_d]).to(derivatives.device))
+    def pinn_loss(self, x, y):
+        pde_loss = self.self.pde_loss(x["pde"],model)
+        initial_loss = self.initial_loss(x["pde"],y["pde"],model)
+        if type(self.boundary_loss) list:
+            boundary_loss = 0 
+            for b in self.boundary_condition:
+                boundary_loss = boundary_loss + boundary_loss(x[b.name],y[b.name], model)
         else:
-            return norm(
-                derivatives[:,-self.output_d:] - self.pde(x,u,derivatives),
-                torch.zeros([x.shape[0],self.output_d]).to(derivatives.device))
-        
-    def pde(self, x, u, derivatives):
-        """
-        Formulation of the right hand side of the pde
-        """
-        raise NotImplementedError
+            boundary_loss = self.boundary_condition(x[self.boundary_condition.name], y[self.boundary_condition.name], model)
+        return pde_loss, initial_loss, boundary_loss
 
-    def derivatives(self,u, x):
-        """ Calculates necessary derivatives """
-        raise NotImplementedError
-    
-    def set_hpm(self, model):
-        """
-        Setting the HPM model to the model
-        """
-        self.hpm_model = model
-    
-    def input_normalization(self,x):
-        """
-        Implementation of the input_normalization
-        """
-        raise NotImplementedError
-    
-    def unset_hpm(self):
-        """
-        Unset HPM functionality fo the model
-        """
-        self.hpm_model = None 
-    
-    
+
     
 
     
