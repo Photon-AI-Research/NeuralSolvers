@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+import PDELoss
+
 
 class PINN(nn.Module):
     
@@ -62,9 +64,8 @@ class PINN(nn.Module):
                 self.boundary_condition = boundary_condition
             else:
                 raise TypeError("Boundary Condation has to be an instance of the BoundaryCondition class or a list of instances of the BoundaryCondition class")
-
-        # TODO creating dataset from loss function 
-    
+        
+        #TODO register function for Dataset
 
     
     def forward(self,x):
@@ -74,7 +75,7 @@ class PINN(nn.Module):
         return self.model(x)
     
     def pinn_loss(self, x, y):
-        pde_loss = self.self.pde_loss(x["pde"],model)
+        pde_loss = self.pde_loss(x["pde"],model)
         initial_loss = self.initial_loss(x["pde"],y["pde"],model)
         if type(self.boundary_loss) list:
             boundary_loss = 0 
@@ -82,7 +83,7 @@ class PINN(nn.Module):
                 boundary_loss = boundary_loss + boundary_loss(x[b.name],y[b.name], model)
         else:
             boundary_loss = self.boundary_condition(x[self.boundary_condition.name], y[self.boundary_condition.name], model)
-        return pde_loss, initial_loss, boundary_loss
+        return pde_loss + initial_loss + boundary_loss
 
 
     
