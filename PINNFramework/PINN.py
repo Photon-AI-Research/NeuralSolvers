@@ -6,7 +6,8 @@ import PDELoss
 
 class PINN(nn.Module):
     
-    def __init__(self, model: torch.nn.Module, input_dimension: int , output_dimension: int, pde_loss: PDELoss, initial_condition :InitialCondition, boundary_condition):
+    def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
+                 pde_loss: PDELoss, initial_condition :InitialCondition, boundary_condition):
         r"""
         Initializes an physics-informed neural network(PINN). A PINN consists of a model which represents the solution of the underlying partial differential equation(PDE) u, 
         three loss terms representing initial (IC) and boundary condtion(BC) and the PDE and a dataset which represents the bounded domain U.
@@ -63,7 +64,8 @@ class PINN(nn.Module):
             if isinstance(boundary_condition,BoundaryCondition):
                 self.boundary_condition = boundary_condition
             else:
-                raise TypeError("Boundary Condation has to be an instance of the BoundaryCondition class or a list of instances of the BoundaryCondition class")
+                raise TypeError("Boundary Condation has to be an instance of the BoundaryCondition class"
+                                "or a list of instances of the BoundaryCondition class")
         
         #TODO register function for Dataset
 
@@ -75,15 +77,18 @@ class PINN(nn.Module):
         return self.model(x)
     
     def pinn_loss(self, x, y):
-        pde_loss = self.pde_loss(x["pde"],model)
-        initial_loss = self.initial_loss(x["pde"],y["pde"],model)
-        if type(self.boundary_loss) list:
+        pde_loss = self.pde_loss(x["pde"], self.model)
+        initial_loss = self.initial_loss(x["pde"],y["pde"],self.model)
+        if type(self.boundary_loss) == list:
             boundary_loss = 0 
             for b in self.boundary_condition:
-                boundary_loss = boundary_loss + boundary_loss(x[b.name],y[b.name], model)
+                boundary_loss = boundary_loss + boundary_loss(x[b.name], y[b.name], self.model)
         else:
-            boundary_loss = self.boundary_condition(x[self.boundary_condition.name], y[self.boundary_condition.name], model)
+            boundary_loss = self.boundary_condition(x[self.boundary_condition.name], y[self.boundary_condition.name], self.model)
         return pde_loss + initial_loss + boundary_loss
+
+    def fit(self, epochs, optimizer='Adam', learning_rate=1e-3):
+        pass
 
 
     
