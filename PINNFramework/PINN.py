@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
-
+from InitalCondition import InitialCondition
+from BoundaryCondition import BoundaryCondition
 import PDELoss
 
 
@@ -55,8 +56,8 @@ class PINN(nn.Module):
         else: 
             raise TypeError("Initial condition has to be an instance of the InitialCondition class")
 
-        if type(boundary_conditions) is list: 
-            for bc in boundary_conditions:
+        if type(boundary_condition) is list:
+            for bc in boundary_condition:
                 if not isinstance(bc,BoundaryCondition):
                     raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
             self.boundary_condition = boundary_condition
@@ -78,7 +79,7 @@ class PINN(nn.Module):
     
     def pinn_loss(self, x, y):
         pde_loss = self.pde_loss(x["pde"], self.model)
-        initial_loss = self.initial_loss(x["pde"],y["pde"],self.model)
+        initial_loss = self.initial_loss(x["pde"], y["pde"], self.model)
         if type(self.boundary_loss) == list:
             boundary_loss = 0 
             for b in self.boundary_condition:

@@ -2,9 +2,10 @@ import torch
 from torch import Tensor as Tensor
 from torch.nn import Module as Module
 from torch.nn import MSELoss, L1Loss
+from LossTerm import LossTerm
 
 
-class PDELoss:
+class PDELoss(LossTerm):
     def __init__(self, norm='L2'):
         # cases for standard torch norms
         if norm == 'L2':

@@ -16,7 +16,6 @@ class JointDataset(Dataset):
 
     def __init__(self, datasets):
         super(JointDataset, self).__init__()
-        # generate keys
         self.datasets = datasets
 
     def __len__(self):
@@ -26,7 +25,6 @@ class JointDataset(Dataset):
         if idx < 0:
             if -idx > len(self):
                 raise ValueError("absolute value of index should not exceed dataset length")
-
         combined_item = []
         for key in self.datasets.keys():
             item = self.datasets[key][idx]
