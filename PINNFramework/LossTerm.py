@@ -2,7 +2,7 @@ from torch.nn import L1Loss, MSELoss
 
 
 class LossTerm:
-    def __init__(self, norm='L2'):
+    def __init__(self, dataset, norm='L2', weight=1.):
         # cases for standard torch norms
         if norm == 'L2':
             self.norm = MSELoss()
@@ -11,3 +11,5 @@ class LossTerm:
         else:
             # Case for self implemented norms
             self.norm = norm
+        self.dataset = dataset
+        self.weight = weight

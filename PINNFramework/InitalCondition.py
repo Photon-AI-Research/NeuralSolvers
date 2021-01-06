@@ -2,9 +2,10 @@ from LossTerm import LossTerm
 from torch import Tensor
 from torch.nn import Module
 
+
 class InitialCondition(LossTerm):
-    def __init__(self, norm='L2'):
-        super(InitialCondition, self).__init__(norm)
+    def __init__(self, dataset, norm='L2', weight=1.):
+        super(InitialCondition, self).__init__(dataset, norm, weight)
 
     def __call__(self, x: Tensor, model: Module, gt_y: Tensor):
         r"""
@@ -15,4 +16,4 @@ class InitialCondition(LossTerm):
         model
         """
         prediction = model(x)
-        return self.norm(prediction, gt_y)
+        return self.weight * self.norm(prediction, gt_y)

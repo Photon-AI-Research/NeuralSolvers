@@ -1,17 +1,20 @@
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 from InitalCondition import InitialCondition
-from BoundaryCondition import BoundaryCondition
-import PDELoss
+from BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC
+from PDELoss import PDELoss
+from JointDataset import JointDataset
 
 
 class PINN(nn.Module):
-    
+
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
-                 pde_loss: PDELoss, initial_condition :InitialCondition, boundary_condition):
+                 pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition):
         r"""
-        Initializes an physics-informed neural network(PINN). A PINN consists of a model which represents the solution of the underlying partial differential equation(PDE) u, 
-        three loss terms representing initial (IC) and boundary condtion(BC) and the PDE and a dataset which represents the bounded domain U.
+        Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
+        of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
+        condition(BC) and the PDE and a dataset which represents the bounded domain U.
 
         Args: 
             model : is the model which is trained to represent the underlying PDE
@@ -19,7 +22,8 @@ class PINN(nn.Module):
             output_dimension : represents the dimension of the solution u
             pde_loss: Instance of the PDELoss class. Represents the underlying PDE
             initial_condition: Instance of the InitialCondition class. Represents the initial condition
-            boundary condition (BoundaryCondition, list): Instance of the BoundaryCondition class or a list of instances of the BoundaryCondition class
+            boundary_condition (BoundaryCondition, list): Instance of the BoundaryCondition class or a list of instances
+            of the BoundaryCondition class
 
         """
 
@@ -29,7 +33,7 @@ class PINN(nn.Module):
             self.model = model
         else:
             raise TypeError("Only models of type torch.nn.Module are allowed")
-        
+
         # checking if the input dimension is well defined 
         if not type(input_dimension) is int:
             raise TypeError("Only integers are allowed as input dimension")
@@ -48,50 +52,148 @@ class PINN(nn.Module):
 
         if isinstance(pde_loss, PDELoss):
             self.pde_loss = pde_loss
-        else: 
+        else:
             raise TypeError("PDE loss has to be an instance of a PDELoss class")
-            
+
         if isinstance(initial_condition, InitialCondition):
-                self.initial_condition = initial_condition
-        else: 
+            self.initial_condition = initial_condition
+        else:
             raise TypeError("Initial condition has to be an instance of the InitialCondition class")
+
+        joined_datasets = {"Initial_Condition": initial_condition.dataset, "PDE": pde_loss.dataset}
 
         if type(boundary_condition) is list:
             for bc in boundary_condition:
-                if not isinstance(bc,BoundaryCondition):
+                if not isinstance(bc, BoundaryCondition):
                     raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
             self.boundary_condition = boundary_condition
+            joined_datasets[boundary_condition.name] = boundary_condition.dataset
+
         else:
-            if isinstance(boundary_condition,BoundaryCondition):
+            if isinstance(boundary_condition, BoundaryCondition):
                 self.boundary_condition = boundary_condition
             else:
-                raise TypeError("Boundary Condation has to be an instance of the BoundaryCondition class"
+                raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
                                 "or a list of instances of the BoundaryCondition class")
-        
-        #TODO register function for Dataset
+        self.dataset = JointDataset(joined_datasets)
 
-    
-    def forward(self,x):
+    def forward(self, x):
         """
         Predicting the solution at given position x
         """
         return self.model(x)
-    
-    def pinn_loss(self, x, y):
-        pde_loss = self.pde_loss(x["pde"], self.model)
-        initial_loss = self.initial_loss(x["pde"], y["pde"], self.model)
-        if type(self.boundary_loss) == list:
-            boundary_loss = 0 
-            for b in self.boundary_condition:
-                boundary_loss = boundary_loss + boundary_loss(x[b.name], y[b.name], self.model)
+
+    def calculate_boundary_condition(self, boundary_condition: BoundaryCondition, training_data):
+        """
+        This function classifies the boundary condition and calculates the satisfaction
+
+        Args:
+            boundary_condition (BoundaryCondition) : boundary condition to be calculated
+            training_data: training data used for evaluation
+        """
+
+        if isinstance(boundary_condition, PeriodicBC):
+            # Periodic Boundary Condition
+            if training_data is tuple:
+                if len(training_data) == 2:
+                    return boundary_condition(training_data[0], training_data[1], self.model)
+                else:
+                    raise ValueError(
+                        "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
+                        format(boundary_condition.name))
+            else:
+                raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
+                                 format(boundary_condition.name))
+        if isinstance(boundary_condition, DirichletBC):
+            # Periodic Boundary Condition
+            if training_data is not tuple:
+                return boundary_condition(training_data, self.model)
+            else:
+                raise ValueError("The boundary condition {} should be a tensor of coordinates not a tuple".
+                                 format(boundary_condition.name))
+        if isinstance(boundary_condition, NeumannBC):
+            # Periodic Boundary Condition
+            if training_data is not tuple:
+                return boundary_condition(training_data, self.model)
+            else:
+                raise ValueError("The boundary condition {} should be a tensor of coordinates not a tuple".
+                                 format(boundary_condition.name))
+        if isinstance(boundary_condition, RobinBC):
+            # Periodic Boundary Condition
+            if training_data is tuple:
+                if len(training_data) == 2:
+                    return boundary_condition(training_data[0], training_data[1], self.model)
+                else:
+                    raise ValueError(
+                        "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
+                        format(boundary_condition.name))
+            else:
+                raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
+                                 format(boundary_condition.name))
+
+    def pinn_loss(self, training_data):
+        """
+        Function for calculating the PINN loss. The PINN Loss is a weighted sum of losses for initial and boundary
+        condition and the residual of the PDE
+
+        Args:
+            training_data (Dictionary): Training Data for calculating the PINN loss in form of ta dictionary. The
+            dictionary holds the training data for initial condition at the key "Initial_Condition" training data for
+            the PDE at the key "PDE" and the data for the boundary condition under the name of the boundary condition
+        """
+
+        pinn_loss = 0
+        # unpack training data
+        if type(training_data["Initial_Condition"]) is tuple:
+            # initial condition loss
+            if len(training_data["Initial Condition"]) == 2:
+                pinn_loss = pinn_loss + self.initial_condition(training_data["Initial_Condition"][0],
+                                                               self.model,
+                                                               training_data["Initial_Condition"][1])
+            else:
+                raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
+                                 " and ground truth values y")
         else:
-            boundary_loss = self.boundary_condition(x[self.boundary_condition.name], y[self.boundary_condition.name], self.model)
-        return pde_loss + initial_loss + boundary_loss
+            raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
+                             " and ground truth values y")
+
+        if type(training_data["PDE"]) is not tuple:
+            pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"], self.model)
+        else:
+            raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
+
+        if self.boundary_condition is list:
+            for bc in self.boundary_condition:
+                pinn_loss = pinn_loss + self.calculate_boundary_condition(bc, training_data[bc.name])
+        else:
+            pinn_loss = pinn_loss + self.calculate_boundary_condition(self.boundary_condition,
+                                                                      training_data[self.boundary_condition.name])
+        return pinn_loss
 
     def fit(self, epochs, optimizer='Adam', learning_rate=1e-3):
-        pass
+        """
+        Function for optimizing the parameters of the PINN-Model
 
+        Args:
+            epochs (int) : number of epochs used for training
+            optimizer (String, torch.optim.Optimizer) : Optimizer used for training. At the moment only ADAM and LBFGS
+            are supported by string command. It is also possible to give instances of torch optimizers as a parameter
+            learning_rate: The learning rate of the optimizer
+        """
 
-    
+        if optimizer == 'Adam':
+            optim = torch.optim.Adam(lr=learning_rate)
+        elif optimizer == 'LBFGS':
+            optim = torch.optim.LBFGS(lr=learning_rate)
+        else:
+            optim = optimizer
 
-    
+        data_loader = DataLoader(self.dataset, batch_size=1)
+        for epoch in range(epochs):
+            for training_data in data_loader:
+                def closure():
+                    optim.zero_grad()
+                    pinn_loss = self.pinn_loss(training_data)
+                    pinn_loss.backward()
+                    return pinn_loss
+                optim.step(closure)

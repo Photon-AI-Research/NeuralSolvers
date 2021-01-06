@@ -6,15 +6,9 @@ from LossTerm import LossTerm
 
 
 class PDELoss(LossTerm):
-    def __init__(self, norm='L2'):
-        # cases for standard torch norms
-        if norm == 'L2':
-            self.norm = MSELoss()
-        elif norm == 'L1':
-            self.norm = L1Loss()
-        else:
-            # Case for self implemented norms TODO: add documentation or a guide
-            self.norm = norm
+    def __init__(self, dataset, norm='L2'):
+        super(PDELoss).__init__(dataset, norm)
+        self.dataset = dataset
 
     def pde(self, x: Tensor, u: Tensor, derivatives: Tensor):
         """
