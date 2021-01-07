@@ -1,7 +1,7 @@
 from torch.utils.data import Dataset
 
 
-class JointDataset(Dataset):
+class JoinedDataset(Dataset):
     r"""Dataset as a concatenation of multiple datasets.
         datasets (sequence): List of datasets to be concatenated
     """
@@ -15,7 +15,7 @@ class JointDataset(Dataset):
         return min([len(ds) for ds in datasets])
 
     def __init__(self, datasets):
-        super(JointDataset, self).__init__()
+        super(JoinedDataset, self).__init__()
         self.datasets = datasets
 
     def __len__(self):

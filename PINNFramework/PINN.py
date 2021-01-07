@@ -4,14 +4,14 @@ from torch.utils.data import DataLoader
 from InitalCondition import InitialCondition
 from BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC
 from PDELoss import PDELoss
-from JointDataset import JointDataset
+from JoinedDataset import JoinedDataset
 
 
 class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
                  pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition):
-        r"""
+        """
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
         condition(BC) and the PDE and a dataset which represents the bounded domain U.
@@ -53,7 +53,7 @@ class PINN(nn.Module):
         if isinstance(pde_loss, PDELoss):
             self.pde_loss = pde_loss
         else:
-            raise TypeError("PDE loss has to be an instance of a PDELoss class")
+            raise TypeError("PDE loss has to be an instance of a PDE Loss class")
 
         if isinstance(initial_condition, InitialCondition):
             self.initial_condition = initial_condition
@@ -75,7 +75,7 @@ class PINN(nn.Module):
             else:
                 raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
                                 "or a list of instances of the BoundaryCondition class")
-        self.dataset = JointDataset(joined_datasets)
+        self.dataset = JoinedDataset(joined_datasets)
 
     def forward(self, x):
         """

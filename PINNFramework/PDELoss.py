@@ -6,24 +6,21 @@ from LossTerm import LossTerm
 
 
 class PDELoss(LossTerm):
-    def __init__(self, dataset, norm='L2'):
-        super(PDELoss).__init__(dataset, norm)
+    def __init__(self, dataset, pde, norm='L2', weight=1.):
+        """
+        Constructor of the PDE Loss
+
+        Args:
+            dataset (torch.utils.Dataset): dataset that provides the residual points
+            pde (function): function that represents residual of the PDE
+            norm: Norm used for calculation PDE loss
+            weight: Weighting for the loss term
+        """
+        super(PDELoss).__init__(dataset, norm, weight)
         self.dataset = dataset
+        self.pde = pde
 
-    def pde(self, x: Tensor, u: Tensor, derivatives: Tensor):
-        """
-        Implements the underlying PDE f(x) = 0
-
-        x: residual points
-        u: prediction of the model
-        derivatives: partial derivatives
-        """
-        raise NotImplementedError("Definition of the PDE is not implemented")
-
-    def derivatives(self, x: Tensor, u: Tensor):
-        raise NotImplementedError("Calculation of the derivatives has to be defined")
-
-    def __call__(self, x: Tensor, model: Module):
+    def __call__(self, x: Tensor, model: Module, **kwargs):
         """
         Call function of the PDE loss. Calculates the norm of the PDE residual
 
@@ -32,7 +29,6 @@ class PDELoss(LossTerm):
         """
         x.requires_grad = True  # setting requires grad to true in order to calculate
         u = model.forward(x)
-        derivatives = self.derivatives(x, u)
-        pde_residual = self.pde(x, u, derivatives)
+        pde_residual = self.pde(x, u, **kwargs)
         zeros = torch.zeros(pde_residual.shape, device=pde_residual.device)
         return self.norm(pde_residual, zeros)
