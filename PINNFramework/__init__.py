@@ -4,6 +4,7 @@ from .BoundaryCondition import DirichletBC
 from .BoundaryCondition import RobinBC
 from .BoundaryCondition import NeumannBC
 from .PDELoss import PDELoss
+from .PINN import PINN
 
 __all__ = [
     'InitialCondition',
@@ -11,5 +12,6 @@ __all__ = [
     'DirichletBC',
     'RobinBC',
     'NeumannBC',
-    'PDELoss'
+    'PDELoss',
+    'PINN'
 ]
