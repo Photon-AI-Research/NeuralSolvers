@@ -1,4 +1,4 @@
-from LossTerm import LossTerm
+from .LossTerm import LossTerm
 from torch import Tensor
 from torch.nn import Module
 

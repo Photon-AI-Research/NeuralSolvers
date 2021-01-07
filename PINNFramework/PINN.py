@@ -1,10 +1,10 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from InitalCondition import InitialCondition
-from BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC
-from PDELoss import PDELoss
-from JoinedDataset import JoinedDataset
+from .InitalCondition import InitialCondition
+from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC
+from .PDELoss import PDELoss
+from .JoinedDataset import JoinedDataset
 
 
 class PINN(nn.Module):
