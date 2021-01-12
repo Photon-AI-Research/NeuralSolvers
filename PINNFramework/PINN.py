@@ -10,7 +10,7 @@ from .JoinedDataset import JoinedDataset
 class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
-                 pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition):
+                 pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition, use_gpu=True):
         """
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
@@ -24,13 +24,22 @@ class PINN(nn.Module):
             initial_condition: Instance of the InitialCondition class. Represents the initial condition
             boundary_condition (BoundaryCondition, list): Instance of the BoundaryCondition class or a list of instances
             of the BoundaryCondition class
+            use_gpu: enables gpu usage
 
         """
 
         super(PINN, self).__init__()
         # checking if the model is a torch module more model checking should be possible
+        self.use_gpu = use_gpu
         if isinstance(model, nn.Module):
             self.model = model
+            if self.use_gpu:
+                self.model.cuda()
+                self.dtype = torch.cuda.FloatTensor
+            else:
+                self.dtype = torch.FloatTensor
+
+
         else:
             raise TypeError("Only models of type torch.nn.Module are allowed")
 
@@ -96,7 +105,9 @@ class PINN(nn.Module):
             # Periodic Boundary Condition
             if isinstance(training_data, list):
                 if len(training_data) == 2:
-                    return boundary_condition(training_data[0], training_data[1], self.model)
+                    return boundary_condition(training_data[0].type(self.dtype),
+                                              training_data[1].type(self.dtype),
+                                              self.model)
                 else:
                     raise ValueError(
                         "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
@@ -105,24 +116,26 @@ class PINN(nn.Module):
                 raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
                                  format(boundary_condition.name))
         if isinstance(boundary_condition, DirichletBC):
-            # Periodic Boundary Condition
+            # Dirchlet Boundary Condition
             if not isinstance(training_data, list):
-                return boundary_condition(training_data, self.model)
+                return boundary_condition(training_data.type(self.dtype), self.model)
             else:
                 raise ValueError("The boundary condition {} should be a tensor of coordinates not a tuple".
                                  format(boundary_condition.name))
         if isinstance(boundary_condition, NeumannBC):
-            # Periodic Boundary Condition
+            # Neumann Boundary Condition
             if not isinstance(training_data, list):
-                return boundary_condition(training_data, self.model)
+                return boundary_condition(training_data.type(self.dtype), self.model)
             else:
                 raise ValueError("The boundary condition {} should be a tensor of coordinates not a tuple".
                                  format(boundary_condition.name))
         if isinstance(boundary_condition, RobinBC):
-            # Periodic Boundary Condition
+            # Robin Boundary Condition
             if isinstance(training_data, list):
                 if len(training_data) == 2:
-                    return boundary_condition(training_data[0], training_data[1], self.model)
+                    return boundary_condition(training_data[0].type(self.dtype),
+                                              training_data[1].type(self.dtype),
+                                              self.model)
                 else:
                     raise ValueError(
                         "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
@@ -147,9 +160,9 @@ class PINN(nn.Module):
         if type(training_data["Initial_Condition"]) is list:
             # initial condition loss
             if len(training_data["Initial_Condition"]) == 2:
-                pinn_loss = pinn_loss + self.initial_condition(training_data["Initial_Condition"][0],
+                pinn_loss = pinn_loss + self.initial_condition(training_data["Initial_Condition"][0].type(self.dtype),
                                                                self.model,
-                                                               training_data["Initial_Condition"][1])
+                                                               training_data["Initial_Condition"][1].type(self.dtype))
             else:
                 raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                                  " and ground truth values y")
@@ -158,7 +171,7 @@ class PINN(nn.Module):
                              " and ground truth values y")
 
         if type(training_data["PDE"]) is not list:
-            pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"], self.model)
+            pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"].type(self.dtype), self.model)
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
         if isinstance(self.boundary_condition, list):

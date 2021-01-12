@@ -38,7 +38,7 @@ class NeumannBC(BoundaryCondition):
         self.output_dimension = output_dimension
 
     def __call__(self, x, model):
-        grads = ones(x.shape, device=x.device)
+        grads = ones(x.shape, device=model.device)
         y = model(x)[:, self.output_dimension]
         grad_y = grad(y, x, create_graph=True, grad_outputs=grads)[0]
         y_dn = grad_y[:, self.input_dimension]

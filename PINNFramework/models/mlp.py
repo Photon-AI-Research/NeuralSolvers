@@ -29,3 +29,9 @@ class MLP(nn.Module):
             x = self.activation(x)
         x = self.linear_layers[-1](x)
         return x
+
+    def cuda(self):
+        super(MLP, self).cuda()
+        self.lb = self.lb.cuda()
+        self.ub = self.ub.cuda()
+
