@@ -35,3 +35,8 @@ class MLP(nn.Module):
         self.lb = self.lb.cuda()
         self.ub = self.ub.cuda()
 
+    def cpu(self):
+        super(MLP, self).cuda()
+        self.lb = self.lb.cpu()
+        self.ub = self.ub.cpu()
+
