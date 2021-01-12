@@ -12,7 +12,12 @@ class JoinedDataset(Dataset):
 
         datasets (Map): Map of datasets to be concatenated
         """
-        return min([len(ds) for ds in datasets])
+        minimum = float("inf")
+        for key in datasets.keys():
+            length = len(datasets[key])
+            if length < minimum:
+                minimum = length
+        return minimum
 
     def __init__(self, datasets):
         super(JoinedDataset, self).__init__()
@@ -25,7 +30,7 @@ class JoinedDataset(Dataset):
         if idx < 0:
             if -idx > len(self):
                 raise ValueError("absolute value of index should not exceed dataset length")
-        combined_item = []
+        combined_item = {}
         for key in self.datasets.keys():
             item = self.datasets[key][idx]
             combined_item[key] = item

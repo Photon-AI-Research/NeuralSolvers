@@ -66,8 +66,8 @@ class PINN(nn.Module):
             for bc in boundary_condition:
                 if not isinstance(bc, BoundaryCondition):
                     raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
-            self.boundary_condition = boundary_condition
-            joined_datasets[boundary_condition.name] = boundary_condition.dataset
+                self.boundary_condition = boundary_condition
+                joined_datasets[bc.name] = bc.dataset
 
         else:
             if isinstance(boundary_condition, BoundaryCondition):
@@ -94,7 +94,7 @@ class PINN(nn.Module):
 
         if isinstance(boundary_condition, PeriodicBC):
             # Periodic Boundary Condition
-            if training_data is tuple:
+            if isinstance(training_data, list):
                 if len(training_data) == 2:
                     return boundary_condition(training_data[0], training_data[1], self.model)
                 else:
@@ -106,21 +106,21 @@ class PINN(nn.Module):
                                  format(boundary_condition.name))
         if isinstance(boundary_condition, DirichletBC):
             # Periodic Boundary Condition
-            if training_data is not tuple:
+            if not isinstance(training_data, list):
                 return boundary_condition(training_data, self.model)
             else:
                 raise ValueError("The boundary condition {} should be a tensor of coordinates not a tuple".
                                  format(boundary_condition.name))
         if isinstance(boundary_condition, NeumannBC):
             # Periodic Boundary Condition
-            if training_data is not tuple:
+            if not isinstance(training_data, list):
                 return boundary_condition(training_data, self.model)
             else:
                 raise ValueError("The boundary condition {} should be a tensor of coordinates not a tuple".
                                  format(boundary_condition.name))
         if isinstance(boundary_condition, RobinBC):
             # Periodic Boundary Condition
-            if training_data is tuple:
+            if isinstance(training_data, list):
                 if len(training_data) == 2:
                     return boundary_condition(training_data[0], training_data[1], self.model)
                 else:
@@ -144,9 +144,9 @@ class PINN(nn.Module):
 
         pinn_loss = 0
         # unpack training data
-        if type(training_data["Initial_Condition"]) is tuple:
+        if type(training_data["Initial_Condition"]) is list:
             # initial condition loss
-            if len(training_data["Initial Condition"]) == 2:
+            if len(training_data["Initial_Condition"]) == 2:
                 pinn_loss = pinn_loss + self.initial_condition(training_data["Initial_Condition"][0],
                                                                self.model,
                                                                training_data["Initial_Condition"][1])
@@ -157,12 +157,11 @@ class PINN(nn.Module):
             raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                              " and ground truth values y")
 
-        if type(training_data["PDE"]) is not tuple:
+        if type(training_data["PDE"]) is not list:
             pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"], self.model)
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
-
-        if self.boundary_condition is list:
+        if isinstance(self.boundary_condition, list):
             for bc in self.boundary_condition:
                 pinn_loss = pinn_loss + self.calculate_boundary_condition(bc, training_data[bc.name])
         else:
@@ -170,7 +169,8 @@ class PINN(nn.Module):
                                                                       training_data[self.boundary_condition.name])
         return pinn_loss
 
-    def fit(self, epochs, optimizer='Adam', learning_rate=1e-3):
+    def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, lbfgs_finetuning=True,
+            writing_cylcle= 30, save_model=True, model_path='best_model.pt'):
         """
         Function for optimizing the parameters of the PINN-Model
 
@@ -179,21 +179,42 @@ class PINN(nn.Module):
             optimizer (String, torch.optim.Optimizer) : Optimizer used for training. At the moment only ADAM and LBFGS
             are supported by string command. It is also possible to give instances of torch optimizers as a parameter
             learning_rate: The learning rate of the optimizer
+            lbfgs_finetuning: Enables LBFGS finetuning after main training
+            writing_cylcle: defines the cylcus of model writing
+            save_model: enables or disables checkpointing
+            model_path: defines the path where the model get stores
+
         """
 
         if optimizer == 'Adam':
-            optim = torch.optim.Adam(lr=learning_rate)
+            optim = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
         elif optimizer == 'LBFGS':
-            optim = torch.optim.LBFGS(lr=learning_rate)
+            optim = torch.optim.LBFGS(self.model.parameters(), lr=learning_rate)
         else:
             optim = optimizer
 
+        if lbfgs_finetuning:
+            lbfgs_optim = torch.optim.LBFGS(self.model.parameters(), lr=0.9)
+            def closure():
+                lbfgs_optim.zero_grad()
+                pinn_loss = self.pinn_loss(training_data)
+                pinn_loss.backward()
+                return pinn_loss
+
+        minimum_pinn_loss = float("inf")
         data_loader = DataLoader(self.dataset, batch_size=1)
         for epoch in range(epochs):
-            for training_data in data_loader:
-                def closure():
-                    optim.zero_grad()
-                    pinn_loss = self.pinn_loss(training_data)
-                    pinn_loss.backward()
-                    return pinn_loss
-                optim.step(closure)
+            for idx, training_data in enumerate(data_loader):
+                optim.zero_grad()
+                pinn_loss = self.pinn_loss(training_data)
+                pinn_loss.backward()
+                print("PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
+                optim.step()
+            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
+                torch.save(self.model, model_path)
+
+        if lbfgs_finetuning:
+            lbfgs_optim.step(closure)
+            print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
+            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
+                torch.save(self.model, model_path)
