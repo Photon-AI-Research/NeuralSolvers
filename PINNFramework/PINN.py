@@ -225,6 +225,7 @@ class PINN(nn.Module):
                 optim.step()
             if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
                 torch.save(self.model, model_path)
+                minimum_pinn_loss = pinn_loss
 
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)
