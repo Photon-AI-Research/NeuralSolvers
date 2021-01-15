@@ -143,7 +143,7 @@ pinn.fit(50000, 'Adam', 1e-3)
 Instead of a PDE loss you can use a HPM model. The HPM model needs a function derivatives that calculates the needed derivatives, while the last returned derivative is the time_derivative.
 You can use the HPM loss a follows. 
 
-```
+```python
 
 der derivatives(x,u):
 	"""
