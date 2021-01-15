@@ -150,7 +150,7 @@ der derivatives(x,u):
 	"""
 	pass
 	
-hpm_loss = pf.HPMLoss(pde_dataset,derivatives,)
+hpm_loss = pf.HPMLoss(pde_dataset,derivatives,hpm_model)
 pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True)
 
 ```
