@@ -5,7 +5,7 @@ from .InitalCondition import InitialCondition
 from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
-
+from .HPMLoss import HPMLoss
 
 class PINN(nn.Module):
 
@@ -198,21 +198,38 @@ class PINN(nn.Module):
             model_path: defines the path where the model get stores
 
         """
+        if isinstance(self.pde_loss, HPMLoss):
+            params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
+            if optimizer == 'Adam':
+                optim = torch.optim.Adam(params, lr=learning_rate)
+            elif optimizer == 'LBFGS':
+                optim = torch.optim.LBFGS(params, lr=learning_rate)
+            else:
+                optim = optimizer
 
-        if optimizer == 'Adam':
-            optim = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
-        elif optimizer == 'LBFGS':
-            optim = torch.optim.LBFGS(self.model.parameters(), lr=learning_rate)
+            if lbfgs_finetuning:
+                lbfgs_optim = torch.optim.LBFGS(params, lr=0.9)
+                def closure():
+                    lbfgs_optim.zero_grad()
+                    pinn_loss = self.pinn_loss(training_data)
+                    pinn_loss.backward()
+                    return pinn_loss
         else:
-            optim = optimizer
+            if optimizer == 'Adam':
+                optim = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+            elif optimizer == 'LBFGS':
+                optim = torch.optim.LBFGS(self.model.parameters(), lr=learning_rate)
+            else:
+                optim = optimizer
 
-        if lbfgs_finetuning:
-            lbfgs_optim = torch.optim.LBFGS(self.model.parameters(), lr=0.9)
-            def closure():
-                lbfgs_optim.zero_grad()
-                pinn_loss = self.pinn_loss(training_data)
-                pinn_loss.backward()
-                return pinn_loss
+            if lbfgs_finetuning:
+                lbfgs_optim = torch.optim.LBFGS(self.model.parameters(), lr=0.9)
+
+                def closure():
+                    lbfgs_optim.zero_grad()
+                    pinn_loss = self.pinn_loss(training_data)
+                    pinn_loss.backward()
+                    return pinn_loss
 
         minimum_pinn_loss = float("inf")
         data_loader = DataLoader(self.dataset, batch_size=1)

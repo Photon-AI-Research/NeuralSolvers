@@ -16,6 +16,7 @@ __all__ = [
     'RobinBC',
     'NeumannBC',
     'PDELoss',
+    'HPMLoss',
     'PINN',
     'models'
 ]

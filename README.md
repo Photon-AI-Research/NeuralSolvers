@@ -132,3 +132,25 @@ pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_
 
 pinn.fit(50000, 'Adam', 1e-3)
 ```
+
+## Deep HPM support 
+
+Instead of a PDE loss you can use a HPM model. The HPM model needs a function derivatives that calculates the needed derivatives, while the last returned derivative is the time_derivative.
+You can use the HPM loss a follows. 
+
+```
+
+der derivatives(x,u):
+	"""
+	Returns the derivatives
+	
+	Args: 
+		x (torch.Tensor) : residual points
+		u (torch.Tensor) : predictions of the pde model
+	"""
+	pass
+	
+hpm_loss = pf.HPMLoss(pde_dataset,derivatives,)
+pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True)
+
+```
