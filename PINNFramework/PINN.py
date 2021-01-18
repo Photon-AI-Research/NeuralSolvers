@@ -92,6 +92,38 @@ class PINN(nn.Module):
         """
         return self.model(x)
 
+    def save_model(self, pinn_path, hpm_path=None):
+        """
+        Saves the state dict of the models. Differs between HPM and Model
+
+        Args:
+            pinn_path: path where the pinn get stored
+            hpm_path: path where the HPM get stored
+        """
+        if isinstance(self.pde_loss, HPMLoss):
+            if hpm_path is None:
+                raise ValueError("Saving path for the HPM has to be defined")
+            torch.save(self.model.state_dict(), pinn_path)
+            torch.save(self.pinn_loss.model.state_dict(), hpm_path)
+        else:
+            torch.save(self.model.state_dict(), pinn_path)
+
+    def load_model(self, pinn_path, hpm_path=None):
+        """
+        Load the state dict of the models. Differs between HPM and Model
+
+        Args:
+            pinn_path: path from where the pinn get loaded
+            hpm_path: path from where the HPM get loaded
+        """
+        if isinstance(self.pde_loss, HPMLoss):
+            if hpm_path is None:
+                raise ValueError("Loading path for the HPM has to be defined")
+            self.model.load_state_dict(torch.load(pinn_path))
+            self.pde_loss.model.load_state_dict(torch.load(hpm_path))
+        else:
+            self.model.load_state_dict(torch.load(pinn_path))
+
     def calculate_boundary_condition(self, boundary_condition: BoundaryCondition, training_data):
         """
         This function classifies the boundary condition and calculates the satisfaction
@@ -105,8 +137,8 @@ class PINN(nn.Module):
             # Periodic Boundary Condition
             if isinstance(training_data, list):
                 if len(training_data) == 2:
-                    return boundary_condition(training_data[0].type(self.dtype),
-                                              training_data[1].type(self.dtype),
+                    return boundary_condition(training_data[0][0].type(self.dtype),
+                                              training_data[1][0].type(self.dtype),
                                               self.model)
                 else:
                     raise ValueError(
@@ -118,14 +150,14 @@ class PINN(nn.Module):
         if isinstance(boundary_condition, DirichletBC):
             # Dirchlet Boundary Condition
             if not isinstance(training_data, list):
-                return boundary_condition(training_data.type(self.dtype), self.model)
+                return boundary_condition(training_data.type(self.dtype)[0], self.model)
             else:
                 raise ValueError("The boundary condition {} should be a tensor of coordinates not a tuple".
                                  format(boundary_condition.name))
         if isinstance(boundary_condition, NeumannBC):
             # Neumann Boundary Condition
             if not isinstance(training_data, list):
-                return boundary_condition(training_data.type(self.dtype), self.model)
+                return boundary_condition(training_data.type(self.dtype)[0], self.model)
             else:
                 raise ValueError("The boundary condition {} should be a tensor of coordinates not a tuple".
                                  format(boundary_condition.name))
@@ -133,8 +165,8 @@ class PINN(nn.Module):
             # Robin Boundary Condition
             if isinstance(training_data, list):
                 if len(training_data) == 2:
-                    return boundary_condition(training_data[0].type(self.dtype),
-                                              training_data[1].type(self.dtype),
+                    return boundary_condition(training_data[0][0].type(self.dtype),
+                                              training_data[1][0].type(self.dtype),
                                               self.model)
                 else:
                     raise ValueError(
@@ -160,9 +192,9 @@ class PINN(nn.Module):
         if type(training_data["Initial_Condition"]) is list:
             # initial condition loss
             if len(training_data["Initial_Condition"]) == 2:
-                pinn_loss = pinn_loss + self.initial_condition(training_data["Initial_Condition"][0].type(self.dtype),
+                pinn_loss = pinn_loss + self.initial_condition(training_data["Initial_Condition"][0][0].type(self.dtype),
                                                                self.model,
-                                                               training_data["Initial_Condition"][1].type(self.dtype))
+                                                               training_data["Initial_Condition"][1][0].type(self.dtype))
             else:
                 raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                                  " and ground truth values y")
@@ -171,7 +203,7 @@ class PINN(nn.Module):
                              " and ground truth values y")
 
         if type(training_data["PDE"]) is not list:
-            pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"].type(self.dtype), self.model)
+            pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"][0].type(self.dtype), self.model)
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
         if isinstance(self.boundary_condition, list):
@@ -183,7 +215,7 @@ class PINN(nn.Module):
         return pinn_loss
 
     def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, lbfgs_finetuning=True,
-            writing_cylcle= 30, save_model=True, model_path='best_model.pt'):
+            writing_cylcle= 30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt'):
         """
         Function for optimizing the parameters of the PINN-Model
 
@@ -195,7 +227,8 @@ class PINN(nn.Module):
             lbfgs_finetuning: Enables LBFGS finetuning after main training
             writing_cylcle: defines the cylcus of model writing
             save_model: enables or disables checkpointing
-            model_path: defines the path where the model get stores
+            pinn_path: defines the path where the pinn get stored
+            hpm_path: defines the path where the hpm get stored
 
         """
         if isinstance(self.pde_loss, HPMLoss):
@@ -235,17 +268,18 @@ class PINN(nn.Module):
         data_loader = DataLoader(self.dataset, batch_size=1)
         for epoch in range(epochs):
             for idx, training_data in enumerate(data_loader):
+                training_data = training_data
                 optim.zero_grad()
                 pinn_loss = self.pinn_loss(training_data)
                 pinn_loss.backward()
                 print("PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
                 optim.step()
             if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
-                torch.save(self.model, model_path)
+                self.save_model(pinn_path, hpm_path)
                 minimum_pinn_loss = pinn_loss
 
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)
             print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
             if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
-                torch.save(self.model, model_path)
+                self.save_model(pinn_path, hpm_path)
