@@ -2,7 +2,8 @@
 Neural network based solvers for partial differential equations.
 
 ```
-P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: Large-scale Neural Solvers for Partial Differential Equations.
+P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
+Large-scale Neural Solvers for Partial Differential Equations.
 
 ```
 
