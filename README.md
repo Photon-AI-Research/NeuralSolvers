@@ -33,7 +33,7 @@ pyDOE==0.3.8
 
 At the beginning you have to implement the datasets following the torch.utils.Dataset interface
 ```python
-import torch.utils.Dataset as Dataset
+import torch.utils.data.Dataset as Dataset
 import PINN.Interface as Interface
 
 sys.path.append(PATH_TO_PINN_FRAMEWORK)  # adding the pinn framework to your path
