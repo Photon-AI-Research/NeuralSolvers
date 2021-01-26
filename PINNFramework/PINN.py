@@ -1,16 +1,17 @@
 import torch
 import torch.nn as nn
+from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
 from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
-
 class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
-                 pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition, use_gpu=True):
+                 pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition,
+                 use_gpu=True, use_horovod=False):
         """
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
@@ -25,12 +26,21 @@ class PINN(nn.Module):
             boundary_condition (BoundaryCondition, list): Instance of the BoundaryCondition class or a list of instances
             of the BoundaryCondition class
             use_gpu: enables gpu usage
+            use_horovod: enables horovod support
 
         """
 
         super(PINN, self).__init__()
         # checking if the model is a torch module more model checking should be possible
         self.use_gpu = use_gpu
+        self.use_horovod = use_horovod
+        if self.use_horovod:
+            import horovod.torch as hvd
+            # Initialize Horovod
+            hvd.init()
+            # Pin GPU to be used to process local rank (one GPU per process)
+            torch.cuda.set_device(hvd.local_rank())
+
         if isinstance(model, nn.Module):
             self.model = model
             if self.use_gpu:
@@ -233,14 +243,18 @@ class PINN(nn.Module):
         """
         if isinstance(self.pde_loss, HPMLoss):
             params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
+            named_parameters = chain(self.model.named_parameters(),self.pde_loss.hpm_model.named_parameters())
             if optimizer == 'Adam':
                 optim = torch.optim.Adam(params, lr=learning_rate)
             elif optimizer == 'LBFGS':
-                optim = torch.optim.LBFGS(params, lr=learning_rate)
+                if self.use_horovod:
+                    raise TypeError("LBFGS is not supported with Horovod")
+                else:
+                    optim = torch.optim.LBFGS(params, lr=learning_rate)
             else:
                 optim = optimizer
 
-            if lbfgs_finetuning:
+            if lbfgs_finetuning and not self.use_horovod:
                 lbfgs_optim = torch.optim.LBFGS(params, lr=0.9)
                 def closure():
                     lbfgs_optim.zero_grad()
@@ -248,6 +262,7 @@ class PINN(nn.Module):
                     pinn_loss.backward()
                     return pinn_loss
         else:
+            named_parameters = self.model.named_parameters()
             if optimizer == 'Adam':
                 optim = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
             elif optimizer == 'LBFGS':
@@ -255,7 +270,7 @@ class PINN(nn.Module):
             else:
                 optim = optimizer
 
-            if lbfgs_finetuning:
+            if lbfgs_finetuning and not self.use_horovod:
                 lbfgs_optim = torch.optim.LBFGS(self.model.parameters(), lr=0.9)
 
                 def closure():
@@ -265,7 +280,21 @@ class PINN(nn.Module):
                     return pinn_loss
 
         minimum_pinn_loss = float("inf")
-        data_loader = DataLoader(self.dataset, batch_size=1)
+        if self.use_horovod:
+            # Partition dataset among workers using DistributedSampler
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+            self.dataset, num_replicas=hvd.size(), rank=hvd.rank())
+            data_loader = DataLoader(self.dataset, batch_size=1,sampler=train_sampler)
+            optim = hvd.DistributedOptimizer(optimizer, named_parameters=named_parameters)
+            # Broadcast parameters from rank 0 to all other processes.
+            hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
+            if isinstance(self.pde_loss, HPMLoss):
+                hvd.broadcast_parameters(self.pinn_loss.hpm_model.state_dict(), root_rank=0)
+            hvd.broadcast_optimizer_state(optim, root_rank=0)
+
+        else:
+            data_loader = DataLoader(self.dataset, batch_size=1)
+
         for epoch in range(epochs):
             for idx, training_data in enumerate(data_loader):
                 training_data = training_data
