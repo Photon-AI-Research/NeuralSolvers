@@ -2,7 +2,8 @@
 Neural network based solvers for partial differential equations.
 
 ```
-P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: Large-scale Neural Solvers for Partial Differential Equations.
+P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
+Large-scale Neural Solvers for Partial Differential Equations.
 
 ```
 
@@ -32,9 +33,7 @@ pyDOE==0.3.8
 
 At the beginning you have to implement the datasets following the torch.utils.Dataset interface
 ```python
-import torch.utils.Dataset as Dataset
-import PINN.Interface as Interface
-
+from torch.utils.data import Dataset
 sys.path.append(PATH_TO_PINN_FRAMEWORK)  # adding the pinn framework to your path
 import PINNFramework as pf
 
@@ -143,7 +142,7 @@ pinn.fit(50000, 'Adam', 1e-3)
 Instead of a PDE loss you can use a HPM model. The HPM model needs a function derivatives that calculates the needed derivatives, while the last returned derivative is the time_derivative.
 You can use the HPM loss a follows. 
 
-```
+```python
 
 der derivatives(x,u):
 	"""
