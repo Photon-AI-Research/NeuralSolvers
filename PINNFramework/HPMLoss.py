@@ -29,4 +29,4 @@ class HPMLoss(PDELoss):
         prediction_u = model(x)
         derivatives = self.derivatives(x, prediction_u)
         hpm_output = self.hpm_model(derivatives)
-        self.norm(derivatives[:, -1], hpm_output)
+        return self.weight * self.norm(derivatives[:, -1], hpm_output)
