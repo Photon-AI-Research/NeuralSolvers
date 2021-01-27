@@ -38,8 +38,6 @@ class PINN(nn.Module):
                 self.dtype = torch.cuda.FloatTensor
             else:
                 self.dtype = torch.FloatTensor
-
-
         else:
             raise TypeError("Only models of type torch.nn.Module are allowed")
 
@@ -61,8 +59,12 @@ class PINN(nn.Module):
 
         if isinstance(pde_loss, PDELoss):
             self.pde_loss = pde_loss
+            self.is_hpm = False
         else:
             raise TypeError("PDE loss has to be an instance of a PDE Loss class")
+
+        if isinstance(pde_loss,HPMLoss):
+            self.is_hpm = True
 
         if isinstance(initial_condition, InitialCondition):
             self.initial_condition = initial_condition
@@ -70,20 +72,20 @@ class PINN(nn.Module):
             raise TypeError("Initial condition has to be an instance of the InitialCondition class")
 
         joined_datasets = {"Initial_Condition": initial_condition.dataset, "PDE": pde_loss.dataset}
+        if not self.is_hpm:
+            if type(boundary_condition) is list:
+                for bc in boundary_condition:
+                    if not isinstance(bc, BoundaryCondition):
+                        raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
+                    self.boundary_condition = boundary_condition
+                    joined_datasets[bc.name] = bc.dataset
 
-        if type(boundary_condition) is list:
-            for bc in boundary_condition:
-                if not isinstance(bc, BoundaryCondition):
-                    raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
-                self.boundary_condition = boundary_condition
-                joined_datasets[bc.name] = bc.dataset
-
-        else:
-            if isinstance(boundary_condition, BoundaryCondition):
-                self.boundary_condition = boundary_condition
             else:
-                raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
-                                "or a list of instances of the BoundaryCondition class")
+                if isinstance(boundary_condition, BoundaryCondition):
+                    self.boundary_condition = boundary_condition
+                else:
+                    raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
+                                    "or a list of instances of the BoundaryCondition class")
         self.dataset = JoinedDataset(joined_datasets)
 
     def forward(self, x):
@@ -206,12 +208,13 @@ class PINN(nn.Module):
             pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"][0].type(self.dtype), self.model)
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
-        if isinstance(self.boundary_condition, list):
-            for bc in self.boundary_condition:
-                pinn_loss = pinn_loss + self.calculate_boundary_condition(bc, training_data[bc.name])
-        else:
-            pinn_loss = pinn_loss + self.calculate_boundary_condition(self.boundary_condition,
-                                                                      training_data[self.boundary_condition.name])
+        if not self.is_hpm:
+            if isinstance(self.boundary_condition, list):
+                for bc in self.boundary_condition:
+                    pinn_loss = pinn_loss + self.calculate_boundary_condition(bc, training_data[bc.name])
+            else:
+                pinn_loss = pinn_loss + self.calculate_boundary_condition(self.boundary_condition,
+                                                                          training_data[self.boundary_condition.name])
         return pinn_loss
 
     def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, lbfgs_finetuning=True,
