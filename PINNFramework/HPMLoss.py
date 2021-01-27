@@ -28,5 +28,7 @@ class HPMLoss(PDELoss):
         x.requires_grad = True
         prediction_u = model(x)
         hpm_input = self.hpm_input(x, prediction_u)
-        hpm_output = self.hpm_model(hpm_input)
-        return self.weight * self.norm(hpm_input[:, -1], hpm_output)
+        time_derivative = hpm_input[:, -1]
+        input = hpm_input[:, :-1]
+        hpm_output = self.hpm_model(input)
+        return self.weight * self.norm(time_derivative, hpm_output)
