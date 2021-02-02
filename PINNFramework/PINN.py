@@ -106,7 +106,7 @@ class PINN(nn.Module):
             if hpm_path is None:
                 raise ValueError("Saving path for the HPM has to be defined")
             torch.save(self.model.state_dict(), pinn_path)
-            torch.save(self.pinn_loss.model.state_dict(), hpm_path)
+            torch.save(self.pinn_loss.hpm_model.state_dict(), hpm_path)
         else:
             torch.save(self.model.state_dict(), pinn_path)
 
@@ -122,7 +122,7 @@ class PINN(nn.Module):
             if hpm_path is None:
                 raise ValueError("Loading path for the HPM has to be defined")
             self.model.load_state_dict(torch.load(pinn_path))
-            self.pde_loss.model.load_state_dict(torch.load(hpm_path))
+            self.pde_loss.hpm_model.load_state_dict(torch.load(hpm_path))
         else:
             self.model.load_state_dict(torch.load(pinn_path))
 
