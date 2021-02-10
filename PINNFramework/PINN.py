@@ -7,6 +7,12 @@ from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, Neuma
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
+
+try:
+    import horovod.torch as hvd
+except:
+    print("Was not able to import Horovod. So Horovod support is not enabled")
+
 class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
@@ -35,7 +41,6 @@ class PINN(nn.Module):
         self.use_gpu = use_gpu
         self.use_horovod = use_horovod
         if self.use_horovod:
-            import horovod.torch as hvd
             # Initialize Horovod
             hvd.init()
             # Pin GPU to be used to process local rank (one GPU per process)
@@ -285,7 +290,7 @@ class PINN(nn.Module):
             train_sampler = torch.utils.data.distributed.DistributedSampler(
             self.dataset, num_replicas=hvd.size(), rank=hvd.rank())
             data_loader = DataLoader(self.dataset, batch_size=1,sampler=train_sampler)
-            optim = hvd.DistributedOptimizer(optimizer, named_parameters=named_parameters)
+            optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
             # Broadcast parameters from rank 0 to all other processes.
             hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
             if isinstance(self.pde_loss, HPMLoss):
@@ -296,7 +301,7 @@ class PINN(nn.Module):
             data_loader = DataLoader(self.dataset, batch_size=1)
 
         for epoch in range(epochs):
-            for idx, training_data in enumerate(data_loader):
+            for training_data in data_loader:
                 training_data = training_data
                 optim.zero_grad()
                 pinn_loss = self.pinn_loss(training_data)
