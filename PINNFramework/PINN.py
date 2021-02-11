@@ -11,7 +11,7 @@ from .HPMLoss import HPMLoss
 try:
     import horovod.torch as hvd
 except:
-    print("Was not able to import Horovod. So Horovod support is not enabled")
+    print("Was not able to import Horovod. Thus Horovod support is not enabled")
 
 class PINN(nn.Module):
 
@@ -40,11 +40,13 @@ class PINN(nn.Module):
         # checking if the model is a torch module more model checking should be possible
         self.use_gpu = use_gpu
         self.use_horovod = use_horovod
+        self.rank = 0 # initialize rank 0 by default in order to make the fit method more flexible
         if self.use_horovod:
             # Initialize Horovod
             hvd.init()
             # Pin GPU to be used to process local rank (one GPU per process)
             torch.cuda.set_device(hvd.local_rank())
+            self.rank = hvd.rank()
 
         if isinstance(model, nn.Module):
             self.model = model
@@ -249,6 +251,8 @@ class PINN(nn.Module):
         if isinstance(self.pde_loss, HPMLoss):
             params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
             named_parameters = chain(self.model.named_parameters(),self.pde_loss.hpm_model.named_parameters())
+            if self.use_horovod  and lbfgs_finetuning:
+                raise ValueError("LBFGS Finetuning is not possible with horovod")
             if optimizer == 'Adam':
                 optim = torch.optim.Adam(params, lr=learning_rate)
             elif optimizer == 'LBFGS':
@@ -306,9 +310,10 @@ class PINN(nn.Module):
                 optim.zero_grad()
                 pinn_loss = self.pinn_loss(training_data)
                 pinn_loss.backward()
-                print("PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
+                if not self.rank:
+                    print("PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
                 optim.step()
-            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
+            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model and not self.rank:
                 self.save_model(pinn_path, hpm_path)
                 minimum_pinn_loss = pinn_loss
 
