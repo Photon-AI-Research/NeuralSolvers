@@ -159,3 +159,10 @@ hpm_loss = pf.HPMLoss(pde_dataset,derivatives,hpm_model)
 pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initial_condition=initial_condition, boundary_condition = [], use_gpu=True)
 
 ```
+## Horovod Support 
+You can activate horovod support by setting the `use_horovod` flag in the constructor of the pinn
+```
+pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True, use_horovod=True)
+```
+
+Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is supported with horovod activated. Another restriction is that the length or your dataset should not be smaller than the number of used GPUs for horovod. 
