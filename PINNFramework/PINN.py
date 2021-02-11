@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
 from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC
@@ -7,10 +8,16 @@ from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
 
+try:
+    import horovod.torch as hvd
+except:
+    print("Was not able to import Horovod. Thus Horovod support is not enabled")
+
 class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
-                 pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition, use_gpu=True):
+                 pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition,
+                 use_gpu=True, use_horovod=False):
         """
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
@@ -25,12 +32,22 @@ class PINN(nn.Module):
             boundary_condition (BoundaryCondition, list): Instance of the BoundaryCondition class or a list of instances
             of the BoundaryCondition class
             use_gpu: enables gpu usage
+            use_horovod: enables horovod support
 
         """
 
         super(PINN, self).__init__()
         # checking if the model is a torch module more model checking should be possible
         self.use_gpu = use_gpu
+        self.use_horovod = use_horovod
+        self.rank = 0 # initialize rank 0 by default in order to make the fit method more flexible
+        if self.use_horovod:
+            # Initialize Horovod
+            hvd.init()
+            # Pin GPU to be used to process local rank (one GPU per process)
+            torch.cuda.set_device(hvd.local_rank())
+            self.rank = hvd.rank()
+
         if isinstance(model, nn.Module):
             self.model = model
             if self.use_gpu:
@@ -236,14 +253,20 @@ class PINN(nn.Module):
         """
         if isinstance(self.pde_loss, HPMLoss):
             params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
+            named_parameters = chain(self.model.named_parameters(),self.pde_loss.hpm_model.named_parameters())
+            if self.use_horovod  and lbfgs_finetuning:
+                raise ValueError("LBFGS Finetuning is not possible with horovod")
             if optimizer == 'Adam':
                 optim = torch.optim.Adam(params, lr=learning_rate)
             elif optimizer == 'LBFGS':
-                optim = torch.optim.LBFGS(params, lr=learning_rate)
+                if self.use_horovod:
+                    raise TypeError("LBFGS is not supported with Horovod")
+                else:
+                    optim = torch.optim.LBFGS(params, lr=learning_rate)
             else:
                 optim = optimizer
 
-            if lbfgs_finetuning:
+            if lbfgs_finetuning and not self.use_horovod:
                 lbfgs_optim = torch.optim.LBFGS(params, lr=0.9)
                 def closure():
                     lbfgs_optim.zero_grad()
@@ -251,6 +274,7 @@ class PINN(nn.Module):
                     pinn_loss.backward()
                     return pinn_loss
         else:
+            named_parameters = self.model.named_parameters()
             if optimizer == 'Adam':
                 optim = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
             elif optimizer == 'LBFGS':
@@ -258,7 +282,7 @@ class PINN(nn.Module):
             else:
                 optim = optimizer
 
-            if lbfgs_finetuning:
+            if lbfgs_finetuning and not self.use_horovod:
                 lbfgs_optim = torch.optim.LBFGS(self.model.parameters(), lr=0.9)
 
                 def closure():
@@ -268,16 +292,31 @@ class PINN(nn.Module):
                     return pinn_loss
 
         minimum_pinn_loss = float("inf")
-        data_loader = DataLoader(self.dataset, batch_size=1)
+        if self.use_horovod:
+            # Partition dataset among workers using DistributedSampler
+            train_sampler = torch.utils.data.distributed.DistributedSampler(
+            self.dataset, num_replicas=hvd.size(), rank=hvd.rank())
+            data_loader = DataLoader(self.dataset, batch_size=1,sampler=train_sampler)
+            optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
+            # Broadcast parameters from rank 0 to all other processes.
+            hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
+            if isinstance(self.pde_loss, HPMLoss):
+                hvd.broadcast_parameters(self.pinn_loss.hpm_model.state_dict(), root_rank=0)
+            hvd.broadcast_optimizer_state(optim, root_rank=0)
+
+        else:
+            data_loader = DataLoader(self.dataset, batch_size=1)
+
         for epoch in range(epochs):
-            for idx, training_data in enumerate(data_loader):
+            for training_data in data_loader:
                 training_data = training_data
                 optim.zero_grad()
                 pinn_loss = self.pinn_loss(training_data)
                 pinn_loss.backward()
-                print("PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
+                if not self.rank:
+                    print("PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
                 optim.step()
-            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
+            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model and not self.rank:
                 self.save_model(pinn_path, hpm_path)
                 minimum_pinn_loss = pinn_loss
 
