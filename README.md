@@ -161,7 +161,7 @@ pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initial_
 ```
 ## Horovod Support 
 You can activate horovod support by setting the `use_horovod` flag in the constructor of the pinn
-```
+```python
 pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True, use_horovod=True)
 ```
 
