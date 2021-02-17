@@ -10,6 +10,7 @@ class MLP(nn.Module):
         self.init_layers(input_size, output_size, hidden_size,num_hidden)
         self.lb = torch.Tensor(lb).float().to(device)
         self.ub = torch.Tensor(ub).float().to(device)
+        self.device = device
 
     def init_layers(self, input_size, output_size, hidden_size, num_hidden):
         self.linear_layers.append(nn.Linear(input_size, hidden_size))
