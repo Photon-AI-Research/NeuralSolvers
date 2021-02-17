@@ -13,7 +13,7 @@ import torch.nn as nn
 from torch.distributions.normal import Normal
 import numpy as np
 import torch.nn.functional as F
-from PINNFramework.models.mlp import MLP    
+from PINNFramework.models import MLP
 
 class SparseDispatcher(object):
     """Helper for implementing a mixture of experts.
@@ -132,7 +132,9 @@ class MoE(nn.Module):
     k: an integer - how many experts to use for each batch element
     """
 
-    def __init__(self, input_size, output_size, num_experts, hidden_size, num_hidden, activation=torch.tanh, non_linear=False,noisy_gating=False, k=4, device = "cpu"):
+    def __init__(self, input_size, output_size, num_experts,
+                 hidden_size, num_hidden, lb, ub, activation=torch.tanh,
+                 non_linear=False, noisy_gating=False, k=1, device= "cpu"):
         super(MoE, self).__init__()
         self.noisy_gating = noisy_gating
         self.num_experts = num_experts
@@ -144,7 +146,11 @@ class MoE(nn.Module):
         self.loss = 0
 
         # instantiate experts
-        self.experts = nn.ModuleList([MLP(input_size, output_size, hidden_size, num_hidden, activation) for i in range(self.num_experts)])
+        self.experts = nn.ModuleList([
+            MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation, device=device)
+            for i in range(self.num_experts)
+        ])
+
         
         self.w_gate = nn.Parameter(torch.randn(input_size, num_experts), requires_grad=True)
         self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True)
@@ -155,7 +161,7 @@ class MoE(nn.Module):
         
         self.non_linear = non_linear
         if self.non_linear:
-            self.gating_network = MLP(input_size,num_experts,num_experts*2,1,activation=F.relu)
+            self.gating_network = MLP(input_size, num_experts, num_experts*2, 1, activation=F.relu)
 
         assert(self.k <= self.num_experts)
 
@@ -186,9 +192,6 @@ class MoE(nn.Module):
         """
         return (gates > 0).sum(0)
 
-
-
-
     def _prob_in_top_k(self, clean_values, noisy_values, noise_stddev, noisy_top_values):
         """Helper function to NoisyTopKGating.
         Computes the probability that value is in top k, given different random noise.
@@ -210,11 +213,11 @@ class MoE(nn.Module):
         batch = clean_values.size(0)
         m = noisy_top_values.size(1)
         top_values_flat = noisy_top_values.flatten()
-        threshold_positions_if_in = (torch.arange(batch) * m + self.k).to(self.device)#.cuda()
+        threshold_positions_if_in = (torch.arange(batch) * m + self.k).to(self.device)
         threshold_if_in = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_in), 1)
         is_in = torch.gt(noisy_values, threshold_if_in)
-        threshold_positions_if_out = (threshold_positions_if_in - 1).to(self.device)#.cuda()
-        threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat,0 , threshold_positions_if_out), 1)
+        threshold_positions_if_out = (threshold_positions_if_in - 1).to(self.device)
+        threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
         # is each value currently in the top k.
         prob_if_in = self.normal.cdf((clean_values - threshold_if_in)/noise_stddev)
         prob_if_out = self.normal.cdf((clean_values - threshold_if_out)/noise_stddev)
@@ -243,7 +246,7 @@ class MoE(nn.Module):
             if(self.k > 1):
                 raw_noise_stddev = self.softplus(raw_noise_stddev)
             noise_stddev = ((raw_noise_stddev + noise_epsilon) * train)
-            noisy_logits = clean_logits + ( torch.randn_like(clean_logits) * noise_stddev)
+            noisy_logits = clean_logits + (torch.randn_like(clean_logits) * noise_stddev)
             logits = noisy_logits
         else:
             logits = clean_logits
@@ -287,12 +290,13 @@ class MoE(nn.Module):
         #
         loss = self.cv_squared(importance) + self.cv_squared(load)
         loss *= loss_coef
-        
-        self.loss = loss
 
-        dispatcher = SparseDispatcher(self.num_experts, gates)
+        dispatcher = SparseDispatcher(self.num_experts, gates,self.device)
         expert_inputs = dispatcher.dispatch(x)
         gates = dispatcher.expert_to_gates()
-        expert_outputs = [self.experts[i](expert_inputs[i].unsqueeze(1)) for i in range(self.num_experts)]
+        expert_outputs = []
+        for i in range(self.num_experts):
+            if expert_inputs[i] is not None:
+                expert_outputs.append(self.experts[i](expert_inputs[i]))
         y = dispatcher.combine(expert_outputs)
-        return y #, loss
+        return y
