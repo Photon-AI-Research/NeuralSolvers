@@ -144,13 +144,13 @@ class MoE(nn.Module):
 
         # instantiate experts
         self.experts = nn.ModuleList([
-            MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation, device=device)
+            MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation, device=device).to(self.device)
             for i in range(self.num_experts)
         ])
 
         
-        self.w_gate = nn.Parameter(torch.randn(input_size, num_experts), requires_grad=True)
-        self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True)
+        self.w_gate = nn.Parameter(torch.randn(input_size, num_experts, device=self.device), requires_grad=True)
+        self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts, device=self.device), requires_grad=True)
 
         self.softplus = nn.Softplus()
         self.softmax = nn.Softmax(1)
@@ -158,7 +158,7 @@ class MoE(nn.Module):
         
         self.non_linear = non_linear
         if self.non_linear:
-            self.gating_network = MLP(input_size, num_experts, num_experts*2, 1, activation=F.relu)
+            self.gating_network = MLP(input_size, num_experts, num_experts*2, 1, activation=F.relu).to(self.device)
 
         assert(self.k <= self.num_experts)
 
