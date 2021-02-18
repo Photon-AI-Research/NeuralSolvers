@@ -148,10 +148,9 @@ class MoE(nn.Module):
         # instantiate experts on the needed GPUs
         self.experts = nn.ModuleList([
             MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation,
-                device='cuda:{}'.format((i % self.num_devices)+1)).to
-            ('cuda:{}'.format((i % self.num_devices)+1))
-            for i in range(self.num_experts)])
-        print(self.experts)
+                device='cuda:{}'.format((i % self.num_devices)+1))
+                .to('cuda:{}'.format((i % self.num_devices)+1))for i in range(self.num_experts)
+        ])
         self.w_gate = nn.Parameter(torch.randn(input_size, num_experts, device=self.device), requires_grad=True)
         self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts, device=self.device), requires_grad=True)
 
