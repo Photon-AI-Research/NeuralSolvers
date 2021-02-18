@@ -151,8 +151,8 @@ class MoE(nn.Module):
             ('cuda:{}'.format((i % self.num_devices)+1))
             for i in range(self.num_experts)])
 
-        self.w_gate = nn.Parameter(torch.randn(input_size, num_experts), requires_grad=True)
-        self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True)
+        self.w_gate = nn.Parameter(torch.randn(input_size, num_experts, device=self.device), requires_grad=True)
+        self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts, device=self.device), requires_grad=True)
 
         self.softplus = nn.Softplus()
         self.softmax = nn.Softmax(1)
