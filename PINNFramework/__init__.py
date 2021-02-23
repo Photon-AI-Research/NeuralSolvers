@@ -18,5 +18,4 @@ __all__ = [
     'PDELoss',
     'HPMLoss',
     'PINN',
-    'models'
-]
+    'models']

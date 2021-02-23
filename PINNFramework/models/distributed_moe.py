@@ -297,10 +297,10 @@ class MoE(nn.Module):
         expert_inputs = dispatcher.dispatch(x)
         gates = dispatcher.expert_to_gates()
         # Here is a loop needed for asynchonous calls of the GPUs
-        expert_outputs = []
+        expert_outputs = [] 
         for i in range(self.num_experts):
             # move data to device
-            exp_input = expert_inputs[i].unsqueeze(1).to(self.experts[i].device)
+            exp_input = expert_inputs[i].to(self.experts[i].device)
             expert_output = self.experts[i](exp_input)
             # move expert output back to device
             expert_output = expert_output.to(self.device)
