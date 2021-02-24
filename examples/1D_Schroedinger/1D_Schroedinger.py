@@ -146,6 +146,7 @@ if __name__ == "__main__":
                                                               periodic_bc_u_x,
                                                               periodic_bc_v_x], use_gpu=True)
     pinn.fit(50000, 'Adam', 1e-3)
+    pinn.load_model('best_model_pinn.pt')
 
     # Plotting
     data = scipy.io.loadmat('NLS.mat')
