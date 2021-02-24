@@ -122,7 +122,6 @@ if __name__ == "__main__":
 
         # calculate first order derivatives
         u_x = grad_u[:, 0]
-        print("u_x", u_x.shape)
         u_t = grad_u[:, 1]
 
         v_x = grad_v[:, 0]
@@ -133,10 +132,8 @@ if __name__ == "__main__":
         grad_v_x = grad(v_x, x, create_graph=True, grad_outputs=grads)[0]
 
         u_xx = grad_u_x[:, 0]
-        print("u_xx", u_xx.shape)
         v_xx = grad_v_x[:, 0]
         f_u = u_t + 0.5 * v_xx + (u ** 2 + v ** 2) * v
-        print("f_u.shape", f_u.shape)
         f_v = v_t - 0.5 * u_xx - (u ** 2 + v ** 2) * u
 
         return stack([f_u, f_v], 1)  # concatenate real part and imaginary part
