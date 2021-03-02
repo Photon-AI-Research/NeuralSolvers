@@ -73,7 +73,7 @@ class InitialConditionDataset(Dataset):
     def __getitem__(self, idx):
         x = np.concatenate([self.x, self.t], axis=1)
         y = np.concatenate([self.u, self.v], axis=1)
-        return Tensor(x).float(), Tensor(y)
+        return Tensor(x).float(), Tensor(y).float()
 
 
 class PDEDataset(Dataset):
