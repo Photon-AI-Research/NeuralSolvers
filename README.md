@@ -1,4 +1,4 @@
-# NeuralSolvers
+# NeuralSolvers :milky_way:
 Neural network based solvers for partial differential equations.
 
 ```
