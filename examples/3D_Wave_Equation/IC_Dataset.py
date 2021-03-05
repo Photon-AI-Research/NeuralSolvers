@@ -45,7 +45,8 @@ class IC_Dataset(Dataset):
         z = np.arange(0, z_length) * self.cell_depth
         y = np.arange(0, y_length) * self.cell_height
         x = np.arange(0, x_length) * self.cell_width
-
+        self.lb = [0, 0, 0]
+        self.ub = [z[-1], y[-1], x[-1]]
         Z, Y, X = np.meshgrid(z, y, x, indexing='ij')
       
         t = np.zeros(Z.shape) + (2000 * it.get_attribute("dt"))

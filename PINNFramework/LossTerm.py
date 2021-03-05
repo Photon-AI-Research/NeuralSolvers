@@ -11,7 +11,6 @@ class LossTerm:
         
         Args:
             dataset (torch.utils.Dataset): dataset that provides the residual points
-            pde (function): function that represents residual of the PDE
             norm: Norm used for calculation PDE loss
             weight: Weighting for the loss term
         """
