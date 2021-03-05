@@ -50,6 +50,7 @@ class IC_Dataset(Dataset):
       
         t = np.zeros(Z.shape) + (2000 * it.get_attribute("dt"))
         z = Z.reshape(-1,1)
+        print(Z.shape)
         x = X.reshape(-1,1)
         y = Y.reshape(-1,1)
         t = t.reshape(-1,1)

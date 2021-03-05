@@ -1,9 +1,13 @@
 import torch
+torch.manual_seed(0)
 import time
 import numpy as np
+np.random.seed(0)
 from argparse import ArgumentParser
 import matplotlib.pyplot as plt
+import sys
 
+sys.path.append('..')
 parser = ArgumentParser()
 parser.add_argument("--distributed", dest="distributed", type=int, default=0)
 args = parser.parse_args()
@@ -14,9 +18,9 @@ else:
     from PINNFramework.models.moe import MoE
 
 if __name__ == "__main__":
-    model = MoE(3, 3, 10, 300, 5, lb=[0, 0, 0], ub=[1, 1, 1], device='cuda:0', k=1).eval()
+    model = MoE(3, 3, 7, 300, 5, lb=[0, 0, 0], ub=[1, 1, 1], device='cuda:0', k=1).eval()
     times = []
-    for i in range(100000, 352000, 2000):
+    for i in range(100000, 10100000,100000):
         x = torch.randn((i, 3)).cuda()
         torch.cuda.synchronize()
         begin_time = time.time()
