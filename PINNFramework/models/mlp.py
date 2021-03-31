@@ -23,20 +23,21 @@ class MLP(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
+        x = x[:,:3]
         x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
         for i in range(len(self.linear_layers) - 1):
             x = self.linear_layers[i](x)
             x = self.activation(x)
         x = self.linear_layers[-1](x)
         return x
-
+        
     def cuda(self):
         super(MLP, self).cuda()
         self.lb = self.lb.cuda()
         self.ub = self.ub.cuda()
 
     def cpu(self):
-        super(MLP, self).cuda()
+        super(MLP, self).cpu()
         self.lb = self.lb.cpu()
         self.ub = self.ub.cpu()
 

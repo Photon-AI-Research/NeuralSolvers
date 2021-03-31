@@ -55,6 +55,7 @@ class InitialConditionDataset(Dataset):
         # Reshape image from 1D array to 2D array
         value = np.array(value).reshape(-1)
         value = value.reshape(num_x, num_y)
+        value = value.astype(np.float)
 
         # Apply bilateralFilter to improve segmentation quality
         value = denoise_bilateral(
@@ -98,7 +99,7 @@ class InitialConditionDataset(Dataset):
         return value, timing
 
     def __init__(self, data_info, batch_size,
-                 num_batches, useGPU=False):
+                 num_batches, use_gpu):
         """Constructor of the initial condition dataset.
         Args:
             data_info (dict): dictionary with info about the data.
@@ -146,31 +147,37 @@ class InitialConditionDataset(Dataset):
         self.x_values = np.array(self.x_values).reshape(-1)
         self.y_values = np.array(self.y_values).reshape(-1)
         self.t_values = np.array(self.t_values).reshape(-1)
+        
+        self.x_indices = self.x_values.copy()
+        self.y_indices = self.y_values.copy()
 
         # Sometimes we are loading less files than we specified by batch_size + num_batches
         # => adapt num_batches to real number of batches for avoiding empty batches
         self.batch_size = batch_size
         num_samples = min((num_batches * batch_size, len(self.x_values)))
-
-        # Create lists with boundary values for spatio-temporal coordinates
-        self.low_bound = [
-            self.x_values.min(),
-            self.y_values.min(),
-            data_info['t_min']]
-        self.up_bound = [
-            self.x_values.max(),
-            self.y_values.max(),
-            data_info['t_max']]
+        self.num_batches = num_samples // self.batch_size
 
         # Convert indices to physical quantities [mm] & [s]
         self.x_values = self.x_values * data_info["spat_res"]
         self.y_values = self.y_values * data_info["spat_res"]
         self.t_values = data_info["t_max"] * self.t_values / data_info["num_t"]
+        
+        # Create lists with boundary values for spatio-temporal coordinates
+        self.low_bound = [
+            self.x_values.min(),
+            self.y_values.min(),
+            self.t_values.min()]
+        self.up_bound = [
+            self.x_values.max(),
+            self.y_values.max(),
+            self.t_values.max()]
 
-        if useGPU:
-            dtype = torch.cuda.FloatTensor
+        if use_gpu:
+            dtype1 = torch.cuda.FloatTensor
+            dtype2 = torch.cuda.LongTensor
         else:
-            dtype = torch.FloatTensor
+            dtype1 = torch.FloatTensor
+            dtype2 = torch.LongTensor
 
         # Generate random permutation idx
         np.random.seed(1234)
@@ -181,21 +188,26 @@ class InitialConditionDataset(Dataset):
         self.y_values = self.y_values[rand_idx]
         self.t_values = self.t_values[rand_idx]
         self.u_values = self.u_values[rand_idx]
+        
+        self.x_indices = self.x_indices[rand_idx]
+        self.y_indices = self.y_indices[rand_idx]
 
         # Slice data for training and convert to torch tensors
-        self.x_values = dtype(self.x_values[:num_samples])
-        self.y_values = dtype(self.y_values[:num_samples])
-        self.t_values = dtype(self.t_values[:num_samples])
-        self.u_values = dtype(self.u_values[:num_samples])
+        self.x_values = dtype1(self.x_values[:num_samples])
+        self.y_values = dtype1(self.y_values[:num_samples])
+        self.t_values = dtype1(self.t_values[:num_samples])
+        self.u_values = dtype1(self.u_values[:num_samples])
+        self.x_indices = dtype2(self.x_indices[:num_samples])
+        self.y_indices = dtype2(self.y_indices[:num_samples])
 
-        self.low_bound = dtype(self.low_bound)
-        self.up_bound = dtype(self.up_bound)
+        self.low_bound = dtype1(self.low_bound)
+        self.up_bound = dtype1(self.up_bound)
 
     def __len__(self):
         """
         Length of the dataset
         """
-        return len(self.x_values)
+        return self.num_batches
 
     def __getitem__(self, index):
         """
@@ -215,7 +227,11 @@ class InitialConditionDataset(Dataset):
             self.t_values[index * self.batch_size: (index + 1) * self.batch_size])
         u_values = (
             self.u_values[index * self.batch_size: (index + 1) * self.batch_size])
-        return torch.stack([x_values, y_values, t_values], 1), u_values
+        x_indices = (
+            self.x_indices[index * self.batch_size: (index + 1) * self.batch_size])
+        y_indices = (
+            self.y_indices[index * self.batch_size: (index + 1) * self.batch_size])
+        return torch.stack([x_values, y_values, t_values, x_indices, y_indices], 1),u_values.reshape(-1,1)
 
 
 class PDEDataset(Dataset):
@@ -223,7 +239,7 @@ class PDEDataset(Dataset):
     Dataset with points (x,y,t) to train HPM model on: HPM(x,y,t) ≈ du/dt.
     """
 
-    def __init__(self, data_info, batch_size, num_batches, useGPU=False):
+    def __init__(self, data_info, batch_size, num_batches, use_gpu):
         """Constructor of the residual poins dataset.
         Args:
             data_info (dict): dictionary with info about the data.
@@ -260,10 +276,14 @@ class PDEDataset(Dataset):
         self.x_values = np.array(self.x_values).reshape(-1)
         self.y_values = np.array(self.y_values).reshape(-1)
         self.t_values = np.array(self.t_values).reshape(-1)
+        
+        self.x_indices = self.x_values.copy()
+        self.y_indices = self.y_values.copy()
 
         # Sometimes we are loading less files than we specified by batch_size + num_batches
         # => adapt num_batches to real number of batches for avoiding empty batches
         self.batch_size = batch_size
+        self.num_batches = num_batches
         num_samples = min((num_batches * batch_size, len(self.x_values)))
 
         # Convert indices to physical quantities [mm] & [s]
@@ -271,10 +291,12 @@ class PDEDataset(Dataset):
         self.y_values = self.y_values * data_info["spat_res"]
         self.t_values = data_info["t_max"] * self.t_values / data_info["num_t"]
 
-        if useGPU:
-            dtype = torch.cuda.FloatTensor
+        if use_gpu:
+            dtype1 = torch.cuda.FloatTensor
+            dtype2 = torch.cuda.LongTensor
         else:
-            dtype = torch.FloatTensor
+            dtype1 = torch.FloatTensor
+            dtype2 = torch.LongTensor
 
         # Generate random permutation idx
         np.random.seed(1234)
@@ -284,17 +306,23 @@ class PDEDataset(Dataset):
         self.x_values = self.x_values[rand_idx]
         self.y_values = self.y_values[rand_idx]
         self.t_values = self.t_values[rand_idx]
+        
+        self.x_indices = self.x_indices[rand_idx]
+        self.y_indices = self.y_indices[rand_idx]
 
         # Slice data for training and convert to torch tensors
-        self.x_values = dtype(self.x_values[:num_samples])
-        self.y_values = dtype(self.y_values[:num_samples])
-        self.t_values = dtype(self.t_values[:num_samples])
+        self.x_values = dtype1(self.x_values[:num_samples])
+        self.y_values = dtype1(self.y_values[:num_samples])
+        self.t_values = dtype1(self.t_values[:num_samples])
+        
+        self.x_indices = dtype2(self.x_indices[:num_samples])
+        self.y_indices = dtype2(self.y_indices[:num_samples])
 
     def __len__(self):
         """
         Length of the dataset
         """
-        return len(self.x_values)
+        return self.num_batches
 
     def __getitem__(self, index):
         """
@@ -311,7 +339,11 @@ class PDEDataset(Dataset):
             self.y_values[index * self.batch_size: (index + 1) * self.batch_size])
         t_values = (
             self.t_values[index * self.batch_size: (index + 1) * self.batch_size])
-        return torch.stack([x_values, y_values, t_values], 1)
+        x_indices = (
+            self.x_indices[index * self.batch_size: (index + 1) * self.batch_size])
+        y_indices = (
+            self.y_indices[index * self.batch_size: (index + 1) * self.batch_size])
+        return torch.stack([x_values, y_values, t_values, x_indices, y_indices], 1)
 
 
 def derivatives(x_values, u_values):
@@ -349,10 +381,12 @@ def derivatives(x_values, u_values):
     #u_yy = [u_yx, u_yy, u_yt]
     u_yy_values = u_yy_values[:, 1].reshape(u_values.shape)
 
-    x_values, y_values, t_values = x_values.T
+    x_values, y_values, t_values, x_indices, y_indices = x_values.T
     x_values = x_values.reshape(u_values.shape)
     y_values = y_values.reshape(u_values.shape)
     t_values = t_values.reshape(u_values.shape)
+    x_indices = x_indices.reshape(u_values.shape)
+    y_indices = y_indices.reshape(u_values.shape)
 
-    return torch.stack([x_values, y_values, t_values, u_values,
+    return torch.stack([x_values, y_values, t_values, x_indices, y_indices, u_values,
                         u_xx_values, u_yy_values, u_t_values], 1).squeeze()

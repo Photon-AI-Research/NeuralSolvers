@@ -25,5 +25,5 @@ class InitialCondition(LossTerm):
         model (Module): model that represents the solution
         gt_y (Tensor): ground true values for the initial state
         """
-        prediction = model(x).reshape(-1)
+        prediction = model(x)
         return self.weight * self.norm(prediction, gt_y)
