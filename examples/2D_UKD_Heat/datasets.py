@@ -141,7 +141,7 @@ class InitialConditionDataset(Dataset):
                         self.u_values.append(u_exact[x_i, y_i])
                         self.x_values.append(x_i)
                         self.y_values.append(y_i)
-                        self.t_values.append(timing)
+                        self.t_values.append(t_frame)
 
         self.u_values = np.array(self.u_values).reshape(-1)
         self.x_values = np.array(self.x_values).reshape(-1)
