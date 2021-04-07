@@ -145,6 +145,7 @@ class MoE(nn.Module):
         self.k = k
         self.loss = 0
         self.num_devices = torch.cuda.device_count() - 1 # cuda:0 is for handling data
+        print("The model runs on {} devices".format(self.num_devices))
         # instantiate experts on the needed GPUs
         self.experts = nn.ModuleList([
             MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation,
@@ -225,7 +226,7 @@ class MoE(nn.Module):
         return prob
 
 
-    def noisy_top_k_gating(self, x, train, noise_epsilon=1e-2):
+    def noisy_top_k_gating(self, x, train, noise_epsilon=1e-1):
         """Noisy top-k gating.
           See paper: https://arxiv.org/abs/1701.06538.
           Args:
