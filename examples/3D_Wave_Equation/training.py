@@ -14,27 +14,27 @@ import matplotlib.pyplot as plt
 
 
 def visualize_gt_diagnostics(dataset):
-    e_field = dataset.e_field.reshape(100, 1400, 100)
+    e_field = dataset.e_field.reshape(256,2048,256)
     mean = np.mean(e_field)
     std = np.std(e_field)
     median = np.median(e_field)
     
     fig1 = plt.figure()
-    slc = e_field[:,:,50]
+    slc = e_field[:,:,120]
     plt.imshow(slc,cmap='jet',aspect='auto')
     plt.colorbar()
     plt.xlabel("y")
     plt.ylabel("z")
     
     fig2 = plt.figure()
-    slc = e_field[:,700,:]
+    slc = e_field[:,800,:]
     plt.imshow(slc,cmap='jet',aspect='auto')
     plt.colorbar()
     plt.xlabel("x")
     plt.ylabel("z")
     
     fig3 = plt.figure()
-    slc = e_field[50,:,:]
+    slc = e_field[120,:,:]
     plt.imshow(slc,cmap='jet',aspect='auto')
     plt.colorbar()
     plt.xlabel("y")
@@ -50,9 +50,11 @@ def visualize_gt_diagnostics(dataset):
             "GT Median Prediction": median  
             }
     )
+    plt.close('all')
+
     
 
-def diagnostics(model,dataset,eval_bs=1000000):
+def diagnostics(model, dataset, eval_bs=1048576):
     with torch.no_grad():
         num_batches = int(dataset.input_x.shape[0] / eval_bs)
         outputs = []
@@ -61,26 +63,26 @@ def diagnostics(model,dataset,eval_bs=1000000):
             output = model(x).detach().cpu().numpy()
             outputs.append(output)
         pred = np.concatenate(outputs,axis=0)
-        pred = pred.reshape(100, 1400, 100)
+        pred = pred.reshape(256,2048,256)
         mean= np.mean(pred) 
         std = np.std(pred)
         median = np.median(pred)
         fig1 = plt.figure()
-        slc = e_field[:,:,50]
+        slc = pred[:,:,120]
         plt.imshow(slc,cmap='jet',aspect='auto')
         plt.colorbar()
         plt.xlabel("y")
         plt.ylabel("z")
 
         fig2 = plt.figure()
-        slc = pred[:,700,:]
+        slc = pred[:,800,:]
         plt.imshow(slc,cmap='jet',aspect='auto')
         plt.colorbar()
         plt.xlabel("x")
         plt.ylabel("z")
 
         fig3 = plt.figure()
-        slc = pred[50,:,:]
+        slc = pred[120,:,:]
         plt.imshow(slc,cmap='jet',aspect='auto')
         plt.colorbar()
         plt.xlabel("y")
@@ -162,6 +164,11 @@ if __name__ == "__main__":
             ub=dataset.ub,
             activation=activation)
         model.cuda()
+    
+    if args.model =="finger":
+        model = pf.models.FingerNet(lb=dataset.lb,ub=dataset.ub,activation=torch.sin)
+        model.cuda()
+            
     if args.model == "snake":
         model = pf.models.SnakeMLP(input_size=4,
                                    output_size=1,
