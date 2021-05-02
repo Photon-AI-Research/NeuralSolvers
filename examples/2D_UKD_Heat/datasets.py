@@ -26,6 +26,7 @@ from skimage.restoration import denoise_bilateral
 from skimage.filters import sobel
 from skimage.segmentation import watershed
 from scipy.ndimage import binary_fill_holes
+from scipy.ndimage import binary_erosion
 
 
 class InitialConditionDataset(Dataset):
@@ -98,14 +99,12 @@ class InitialConditionDataset(Dataset):
 
         return value, timing
 
-    def __init__(self, data_info, batch_size,
-                 num_batches, use_gpu):
+    def __init__(self, data_info, batch_size, num_batches):
         """Constructor of the initial condition dataset.
         Args:
             data_info (dict): dictionary with info about the data.
             batch_size (int): size of a mini-batch in the dataset
             num_batches (int): number of mini-batches in the dataset
-            useGPU (boolean): sends dataset to GPU if True
         """
 
         self.u_values = []
@@ -157,7 +156,8 @@ class InitialConditionDataset(Dataset):
         num_samples = min((num_batches * batch_size, len(self.x_values)))
         self.num_batches = num_samples // self.batch_size
 
-        # Convert indices to physical quantities [mm] & [s]
+        # Convert indices to physical quantities 
+        # spatial: [mm]; temporal: [s]
         self.x_values = self.x_values * data_info["spat_res"]
         self.y_values = self.y_values * data_info["spat_res"]
         self.t_values = data_info["t_max"] * self.t_values / data_info["num_t"]
@@ -172,12 +172,8 @@ class InitialConditionDataset(Dataset):
             self.y_values.max(),
             self.t_values.max()]
 
-        if use_gpu:
-            dtype1 = torch.cuda.FloatTensor
-            dtype2 = torch.cuda.LongTensor
-        else:
-            dtype1 = torch.FloatTensor
-            dtype2 = torch.LongTensor
+        dtype1 = torch.FloatTensor
+        dtype2 = torch.LongTensor
 
         # Generate random permutation idx
         np.random.seed(1234)
@@ -202,7 +198,18 @@ class InitialConditionDataset(Dataset):
 
         self.low_bound = dtype1(self.low_bound)
         self.up_bound = dtype1(self.up_bound)
-
+        
+    def cuda(self):
+        """
+        Sends the dataset to GPU
+        """        
+        self.x_values = self.x_values.cuda()
+        self.y_values = self.y_values.cuda()
+        self.t_values = self.t_values.cuda() 
+        self.u_values = self.u_values.cuda()
+        self.x_indices = self.x_indices.cuda()
+        self.y_indices = self.y_indices.cuda()
+        
     def __len__(self):
         """
         Length of the dataset
@@ -239,21 +246,24 @@ class PDEDataset(Dataset):
     Dataset with points (x,y,t) to train HPM model on: HPM(x,y,t) ≈ du/dt.
     """
 
-    def __init__(self, data_info, batch_size, num_batches, use_gpu):
+    def __init__(self, data_info, batch_size, num_batches, erode):
         """Constructor of the residual poins dataset.
         Args:
             data_info (dict): dictionary with info about the data.
             batch_size (int): size of a mini-batch in the dataset
             num_batches (int): number of mini-batches in the dataset
-            useGPU (boolean): sends dataset to GPU if True
         """
 
         self.x_values = []
         self.y_values = []
         self.t_values = []
-
-        seg_mask = InitialConditionDataset.segmentation(
-            data_info["path_data"], 0, data_info["num_x"], data_info["num_y"])
+        
+        if not erode:
+            seg_mask = InitialConditionDataset.segmentation(
+                data_info["path_data"], 0, data_info["num_x"], data_info["num_y"])
+        else:
+            seg_mask = binary_erosion(InitialConditionDataset.segmentation(
+                data_info["path_data"], 0, data_info["num_x"], data_info["num_y"]), iterations = 25)
 
         h5_file = h5py.File(data_info["path_data"] + str(0) + '.h5', 'r')
         u_exact = np.array(h5_file['seq'][:])
@@ -291,12 +301,8 @@ class PDEDataset(Dataset):
         self.y_values = self.y_values * data_info["spat_res"]
         self.t_values = data_info["t_max"] * self.t_values / data_info["num_t"]
 
-        if use_gpu:
-            dtype1 = torch.cuda.FloatTensor
-            dtype2 = torch.cuda.LongTensor
-        else:
-            dtype1 = torch.FloatTensor
-            dtype2 = torch.LongTensor
+        dtype1 = torch.FloatTensor
+        dtype2 = torch.LongTensor
 
         # Generate random permutation idx
         np.random.seed(1234)
@@ -317,6 +323,16 @@ class PDEDataset(Dataset):
         
         self.x_indices = dtype2(self.x_indices[:num_samples])
         self.y_indices = dtype2(self.y_indices[:num_samples])
+        
+    def cuda(self):
+        """
+        Sends the dataset to GPU
+        """        
+        self.x_values = self.x_values.cuda()
+        self.y_values = self.y_values.cuda()
+        self.t_values = self.t_values.cuda() 
+        self.x_indices = self.x_indices.cuda()
+        self.y_indices = self.y_indices.cuda()
 
     def __len__(self):
         """
