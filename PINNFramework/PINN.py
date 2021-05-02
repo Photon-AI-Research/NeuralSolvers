@@ -7,6 +7,7 @@ from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, Neuma
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
+from .RegularizerLoss import regularizer_loss
 
 try:
     import horovod.torch as hvd
@@ -22,7 +23,7 @@ class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
                  pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition,
-                 use_gpu=True, use_horovod=False, use_wandb=True, project_name=None):
+                 use_gpu=True, use_horovod=False, use_wandb=True, project_name=None, regularize=False, weight_j=0.01, delay=0):
         """
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
@@ -47,6 +48,9 @@ class PINN(nn.Module):
         self.use_gpu = use_gpu
         self.use_horovod = use_horovod
         self.use_wandb = use_wandb
+        self.regularize = regularize
+        self.weight_j = weight_j
+        self.delay = delay
         self.rank = 0 # initialize rank 0 by default in order to make the fit method more flexible
         if self.use_horovod:
             # Initialize Horovod
@@ -209,7 +213,7 @@ class PINN(nn.Module):
                 raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
                                  format(boundary_condition.name))
 
-    def pinn_loss(self, training_data):
+    def pinn_loss(self, training_data, train_pinn=True, train_hpm=True):
         """
         Function for calculating the PINN loss. The PINN Loss is a weighted sum of losses for initial and boundary
         condition and the residual of the PDE
@@ -220,57 +224,50 @@ class PINN(nn.Module):
             the PDE at the key "PDE" and the data for the boundary condition under the name of the boundary condition
         """
 
-        pinn_loss, init_loss, pde_loss, boundary_loss = torch.zeros(4)
+        pinn_loss, init_loss, pde_loss, boundary_loss, hs_loss = torch.zeros(5)
         # unpack training data
-        if type(training_data["Initial_Condition"]) is list:
-            # initial condition loss
-            if len(training_data["Initial_Condition"]) == 2:
-                init_loss = self.initial_condition(training_data["Initial_Condition"][0][0].type(self.dtype),
-                                                               self.model,
-                                                               training_data["Initial_Condition"][1][0].type(self.dtype))
-                pinn_loss = pinn_loss + init_loss
+        if train_pinn:
+            if type(training_data["Initial_Condition"]) is list:
+                # initial condition loss
+                if len(training_data["Initial_Condition"]) == 2:
+                    init_loss = self.initial_condition(training_data["Initial_Condition"][0][0].type(self.dtype),
+                                                                   self.model,
+                                                                   training_data["Initial_Condition"][1][0].type(self.dtype))
+                    pinn_loss = pinn_loss + init_loss
+                else:
+                    raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
+                                     " and ground truth values y")
             else:
                 raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                                  " and ground truth values y")
-        else:
-            raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
-                             " and ground truth values y")
-
-        if type(training_data["PDE"]) is not list:
-            pde_loss = self.pde_loss(training_data["PDE"][0].type(self.dtype), self.model)
-            pinn_loss = pinn_loss + pde_loss
-        else:
-            raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
-        if not self.is_hpm:
-            if isinstance(self.boundary_condition, list):
-                for bc in self.boundary_condition:
-                    boundary_loss = self.calculate_boundary_condition(bc, training_data[bc.name])
-                    pinn_loss = pinn_loss + boundary_loss
+        if train_hpm:
+            if type(training_data["PDE"]) is not list:
+                pde_loss = self.pde_loss(training_data["PDE"][0].type(self.dtype), self.model)
+                if self.regularize:
+                    hs_loss = regularizer_loss(training_data["PDE"][0].type(self.dtype), self.pde_loss.hpm_model.heat_source_net, self.weight_j)
+                pinn_loss = pinn_loss + pde_loss + hs_loss
             else:
-                boundary_loss = self.calculate_boundary_condition(self.boundary_condition,
-                                                                          training_data[self.boundary_condition.name])
-                pinn_loss = pinn_loss + boundary_loss
-        return pinn_loss, init_loss, pde_loss, boundary_loss
-
-    def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, lbfgs_finetuning=True,
-            writing_cylcle= 30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt', load_models=False):
-        """
-        Function for optimizing the parameters of the PINN-Model
-
-        Args:
-            epochs (int) : number of epochs used for training
-            optimizer (String, torch.optim.Optimizer) : Optimizer used for training. At the moment only ADAM and LBFGS
-            are supported by string command. It is also possible to give instances of torch optimizers as a parameter
-            learning_rate: The learning rate of the optimizer
-            lbfgs_finetuning: Enables LBFGS finetuning after main training
-            writing_cylcle: defines the cylcus of model writing
-            save_model: enables or disables checkpointing
-            pinn_path: defines the path where the pinn get stored
-            hpm_path: defines the path where the hpm get stored
-
-        """
+                raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
+            if not self.is_hpm:
+                if isinstance(self.boundary_condition, list):
+                    for bc in self.boundary_condition:
+                        boundary_loss = self.calculate_boundary_condition(bc, training_data[bc.name])
+                        pinn_loss = pinn_loss + boundary_loss
+                else:
+                    boundary_loss = self.calculate_boundary_condition(self.boundary_condition,
+                                                                              training_data[self.boundary_condition.name])
+                    pinn_loss = pinn_loss + boundary_loss
+        return pinn_loss, init_loss, pde_loss, boundary_loss, hs_loss
+    
+    def init_optim(self, optimizer='Adam', learning_rate=1e-3, lbfgs_finetuning=True, train_pinn=True, train_hpm=True):
+        
         if isinstance(self.pde_loss, HPMLoss):
-            params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
+          
+            params = []
+            if train_pinn:
+                params += list(self.model.parameters()) 
+            if train_hpm:
+                params += list(self.pde_loss.hpm_model.parameters())
             named_parameters = chain(self.model.named_parameters(),self.pde_loss.hpm_model.named_parameters())
             if self.use_horovod  and lbfgs_finetuning:
                 raise ValueError("LBFGS Finetuning is not possible with horovod")
@@ -308,11 +305,35 @@ class PINN(nn.Module):
                     pinn_loss,_,_,_ = self.pinn_loss(training_data)
                     pinn_loss.backward()
                     return pinn_loss
+               
+        return optim
+        
+
+    def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, lbfgs_finetuning=True,
+            writing_cylcle= 1, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt', load_models=False):
+        """
+        Function for optimizing the parameters of the PINN-Model
+
+        Args:
+            epochs (int) : number of epochs used for training
+            optimizer (String, torch.optim.Optimizer) : Optimizer used for training. At the moment only ADAM and LBFGS
+            are supported by string command. It is also possible to give instances of torch optimizers as a parameter
+            learning_rate: The learning rate of the optimizer
+            lbfgs_finetuning: Enables LBFGS finetuning after main training
+            writing_cylcle: defines the cylcus of model writing
+            save_model: enables or disables checkpointing
+            pinn_path: defines the path where the pinn get stored
+            hpm_path: defines the path where the hpm get stored
+
+        """
+        optim = self.init_optim(optimizer, learning_rate, lbfgs_finetuning, True, False)
                 
         if load_models:
             self.load_model(pinn_path, hpm_path)
 
         minimum_pinn_loss = float("inf")
+        
+        """
         if self.use_horovod:
             # Partition dataset among workers using DistributedSampler
             train_sampler = torch.utils.data.distributed.DistributedSampler(
@@ -327,29 +348,35 @@ class PINN(nn.Module):
 
         else:
             data_loader = DataLoader(self.dataset, batch_size=1)
-
+        """
+        data_loader = DataLoader(self.dataset, batch_size=1)
+        
+        train_pinn = True
+        train_hpm = False
+        
         for epoch in range(epochs):
+            if self.delay:
+                if epoch == self.delay:
+                    train_pinn = False
+                    train_hpm = True
+                    optim = self.init_optim(optimizer, learning_rate, lbfgs_finetuning, train_pinn, train_hpm)
             for training_data in data_loader:
-                #training_data["Initial_Condition"][0] = training_data["Initial_Condition"][0][:,:,:len(self.model.lb)]
-                #training_data["PDE"] = training_data["PDE"][:,:,:len(self.model.lb)]
-
                 optim.zero_grad()
-                pinn_loss, init_loss, pde_loss, boundary_loss = self.pinn_loss(training_data)
+                pinn_loss, init_loss, pde_loss, boundary_loss, hs_loss = self.pinn_loss(training_data, train_pinn, train_hpm)
                 pinn_loss.backward()
                 optim.step()
             if not self.rank:
-                print("PINN Loss {:.4f} Epoch {} from {}".format(pinn_loss, epoch, epochs))
-                print(self.pde_loss.hpm_model.k_values.mean().item())
-                print(self.pde_loss.hpm_model.k_values.min().item())
+                print("Loss {:.4f}, HPM Loss {:.4f} Epoch {} from {}".format(pinn_loss, pde_loss, epoch, epochs))
+            
             if self.use_wandb: # Write down train/test accuracies and loss
                 if not self.use_horovod or (self.use_horovod and hvd.rank()) == 0:
-                    wandb.log({"PINN Loss": pinn_loss.item(), "Initial Condition Loss": init_loss.item(), "PDE/HPM Loss": pde_loss.item(), "Boundary Loss": boundary_loss.item(), "Epoch": epoch})
+                    wandb.log({"PINN Loss": pinn_loss.item(), "Initial Condition Loss": init_loss.item(), "PDE/HPM Loss": pde_loss.item(), "Boundary Loss": boundary_loss.item(), "Regularizer Loss": hs_loss.item(), "Epoch": epoch})
 
-            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model and not self.rank:
+            if not (epoch % writing_cylcle) and save_model and not self.rank:
                 self.save_model(pinn_path, hpm_path)
                 minimum_pinn_loss = pinn_loss
 
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)
             print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
-                
+    
