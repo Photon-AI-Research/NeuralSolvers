@@ -9,6 +9,7 @@ from .PINN import PINN
 
 import PINNFramework.models
 
+
 __all__ = [
     'InitialCondition',
     'PeriodicBC',

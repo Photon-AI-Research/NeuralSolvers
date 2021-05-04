@@ -288,7 +288,7 @@ class MoE(nn.Module):
         loss = self.cv_squared(importance) + self.cv_squared(load)
         loss *= loss_coef
 
-        dispatcher = SparseDispatcher(self.num_experts, gates,self.device)
+        dispatcher = SparseDispatcher(self.num_experts, gates, self.device)
         expert_inputs = dispatcher.dispatch(x)
         gates = dispatcher.expert_to_gates()
         expert_outputs = []

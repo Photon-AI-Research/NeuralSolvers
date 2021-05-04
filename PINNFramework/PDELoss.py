@@ -1,7 +1,6 @@
 import torch
 from torch import Tensor as Tensor
 from torch.nn import Module as Module
-from torch.nn import MSELoss, L1Loss
 from .LossTerm import LossTerm
 
 
@@ -31,4 +30,4 @@ class PDELoss(LossTerm):
         u = model.forward(x)
         pde_residual = self.pde(x, u, **kwargs)
         zeros = torch.zeros(pde_residual.shape, device=pde_residual.device)
-        return self.norm(pde_residual, zeros)
+        return self.weight * self.norm(pde_residual, zeros)

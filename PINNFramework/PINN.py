@@ -234,8 +234,8 @@ class PINN(nn.Module):
                                                                           training_data[self.boundary_condition.name])
         return pinn_loss
 
-    def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, lbfgs_finetuning=True,
-            writing_cylcle= 30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt'):
+    def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, pretraining=False, epochs_pt=100, lbfgs_finetuning=True,
+            writing_cylcle=30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt'):
         """
         Function for optimizing the parameters of the PINN-Model
 
@@ -244,6 +244,8 @@ class PINN(nn.Module):
             optimizer (String, torch.optim.Optimizer) : Optimizer used for training. At the moment only ADAM and LBFGS
             are supported by string command. It is also possible to give instances of torch optimizers as a parameter
             learning_rate: The learning rate of the optimizer
+            pretraining: Activates seperate training on the initial condition at the beginning
+            epochs_pt: defines the number of epochs for the pretraining
             lbfgs_finetuning: Enables LBFGS finetuning after main training
             writing_cylcle: defines the cylcus of model writing
             save_model: enables or disables checkpointing
@@ -253,8 +255,8 @@ class PINN(nn.Module):
         """
         if isinstance(self.pde_loss, HPMLoss):
             params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
-            named_parameters = chain(self.model.named_parameters(),self.pde_loss.hpm_model.named_parameters())
-            if self.use_horovod  and lbfgs_finetuning:
+            named_parameters = chain(self.model.named_parameters(), self.pde_loss.hpm_model.named_parameters())
+            if self.use_horovod and lbfgs_finetuning:
                 raise ValueError("LBFGS Finetuning is not possible with horovod")
             if optimizer == 'Adam':
                 optim = torch.optim.Adam(params, lr=learning_rate)
@@ -295,9 +297,15 @@ class PINN(nn.Module):
         if self.use_horovod:
             # Partition dataset among workers using DistributedSampler
             train_sampler = torch.utils.data.distributed.DistributedSampler(
-            self.dataset, num_replicas=hvd.size(), rank=hvd.rank())
-            data_loader = DataLoader(self.dataset, batch_size=1,sampler=train_sampler)
+                self.dataset, num_replicas=hvd.size(), rank=hvd.rank()
+            )
+            data_loader = DataLoader(self.dataset, batch_size=1, sampler=train_sampler)
             optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
+            if pretraining:
+                train_sampler_pt = torch.utils.data.distributed.DistributedSampler(
+                    self.initial_condition.dataset, num_replicas=hvd.size(), rank=hvd.size()
+                )
+                data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None, sampler=train_sampler_pt)
             # Broadcast parameters from rank 0 to all other processes.
             hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
             if isinstance(self.pde_loss, HPMLoss):
@@ -306,16 +314,27 @@ class PINN(nn.Module):
 
         else:
             data_loader = DataLoader(self.dataset, batch_size=1)
+            data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None)
 
+        print("===== Pretraining =====")
+        if pretraining:
+            for epoch in range(epochs_pt):
+                for x, y in data_loader_pt:
+                    optim.zero_grad()
+                    ic_loss = self.initial_condition(model=self.model,x=x.type(self.dtype), gt_y=y.type(self.dtype))
+                    ic_loss.backward()
+                    optim.step()
+                    if not self.rank:
+                        print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch, epochs))
+        print("===== Maintraining =====")
         for epoch in range(epochs):
             for training_data in data_loader:
-                training_data = training_data
                 optim.zero_grad()
                 pinn_loss = self.pinn_loss(training_data)
                 pinn_loss.backward()
+                optim.step()
                 if not self.rank:
                     print("PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
-                optim.step()
             if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model and not self.rank:
                 self.save_model(pinn_path, hpm_path)
                 minimum_pinn_loss = pinn_loss
