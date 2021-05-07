@@ -29,19 +29,37 @@ class DirichletBC(BoundaryCondition):
 class NeumannBC(BoundaryCondition):
     """
     Neumann boundary conditions: dy/dn(x) = func(x).
+
+    With dy/dn(x) = <∇y,n>
     """
 
-    def __init__(self, func, dataset, input_dimension, output_dimension, name, norm='L2',weight=1.):
+    def __init__(self, func, dataset, normal_vector, begin, end, output_dimension, name, norm='L2', weight=1.):
+        """
+        Args:
+            func: scalar but vectorized function f(x)
+            normal_vector: normal vector for the face
+            name: identifier of the boundary condition
+            weight: weighting of the boundary condition
+            begin: defines the begin of spatial variables in x
+            end: defines the end of the spatial domain in x
+            output_dimension defines on which dimension of the output the boundary condition performed
+        """
         super(NeumannBC, self).__init__(name, dataset, norm, weight)
         self.func = func
-        self.input_dimension = input_dimension
+        self.normal_vector = normal_vector
+        self.begin = begin
+        self.end = end
         self.output_dimension = output_dimension
 
     def __call__(self, x, model):
-        grads = ones(x.shape, device=model.device)
-        y = model(x)[:, self.output_dimension]
+        x.requires_grad = True
+        y = model(x)
+        y = y[:, self.output_dimension]
+        grads = ones(y.shape, device=y.device)
         grad_y = grad(y, x, create_graph=True, grad_outputs=grads)[0]
-        y_dn = grad_y[:, self.input_dimension]
+        grad_y = grad_y[:,self.begin:self.end]
+        self.normal_vector.to(y.device)  # move normal vector to the correct device
+        y_dn = grad_y @ self.normal_vector
         return self.weight * self.norm(y_dn, self.func(x))
 
 
@@ -50,18 +68,35 @@ class RobinBC(BoundaryCondition):
     Robin boundary conditions: dy/dn(x) = func(x, y).
     """
 
-    def __init__(self, func, dataset, input_dimension, output_dimension, name, norm='L2', weight=1.):
+    def __init__(self, func, dataset, normal_vector, begin, end, output_dimension, name, norm='L2', weight=1.):
+        """
+            Args:
+                func: scalar but vectorized function f(x,y)
+                normal_vector: normal vector for the face
+                name: identifier of the boundary condition
+                weight: weighting of the boundary condition
+                begin: defines the begin of spatial variables in x
+                end: defines the end of the spatial domain in x
+                output_dimension defines on which dimension of the output the boundary condition performed
+        """
+
         super(RobinBC, self).__init__(name, dataset, norm, weight)
         self.func = func
-        self.input_dimension = input_dimension
+        self.begin = begin
+        self.end = end
+        self.normal_vector = normal_vector
         self.output_dimension = output_dimension
 
     def __call__(self, x, y, model):
-        y = model(x)[:, self.output_dimension]
+        x.requires_grad = True
+        y = model(x)
+        y = y[:, self.output_dimension]
         grads = ones(y.shape, device=y.device)
         grad_y = grad(y, x, create_graph=True, grad_outputs=grads)[0]
-        y_dn = grad_y[:, self.input_dimension]
-        return self.weight * self.norm(y_dn, self.func(x, y))
+        grad_y = grad_y[:, self.begin:self.end]
+        self.normal_vector.to(y.device)  # move normal vector to the correct device
+        y_dn = grad_y @ self.normal_vector
+        return self.weight * self.norm(y_dn, self.func(x,y))
 
 
 class PeriodicBC(BoundaryCondition):
