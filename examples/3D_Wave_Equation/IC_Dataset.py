@@ -3,7 +3,8 @@ import openpmd_api as io
 from torch import Tensor
 from torch.utils.data import Dataset
 
-class IC_Dataset(Dataset):
+
+class ICDataset(Dataset):
     
     def __init__(self, path, iteration, n0, batch_size, normalize_labels=False):
         """
@@ -38,20 +39,15 @@ class IC_Dataset(Dataset):
         z_length = field_shape[0]
         y_length = field_shape[1]
         x_length = field_shape[2]
-        #E_x = E_x[70:170,100:1500,70:170]
+
         E_x = E_x.reshape(-1,1)
-        #E_y = E_y.reshape(-1,1)
-        #E_z = E_z.reshape(-1,1)
+
         # creating the mesh in PIConGPU coordinates
         z = np.arange(0, z_length) * self.cell_depth
         y = np.arange(0, y_length) * self.cell_height
         x = np.arange(0, x_length) * self.cell_width
 
         Z, Y, X = np.meshgrid(z, y, x, indexing='ij')
-        # Slicing for smaller computational domain
-        #Z = Z[70:170,100:1500,70:170]
-        #Y = Y[70:170,100:1500,70:170]
-        #X = X[70:170,100:1500,70:170]
         self.lb = [0, 0, 0, 0]
 
         t = np.zeros(Z.shape) + (2000 * it.get_attribute("dt"))
@@ -88,13 +84,8 @@ class IC_Dataset(Dataset):
         Args:
         idx: index of the batch 
         """
-        x = self.inputs[self.batch_size * idx : self.batch_size * (idx + 1), :]
-        exact = self.exact[self.batch_size * idx : self.batch_size * (idx + 1), :]
+        x = self.inputs[self.batch_size * idx: self.batch_size * (idx + 1), :]
+        exact = self.exact[self.batch_size * idx: self.batch_size * (idx + 1), :]
         
         return Tensor(x).float(), Tensor(exact).float()
-        
-        
-        
-        
-        
-    
+
