@@ -4,9 +4,8 @@ from torch import ones
 
 
 class BoundaryCondition(LossTerm):
-    def __init__(self, name, dataset, norm='L2', weight=1.):
-        self.name = name
-        super(BoundaryCondition, self).__init__(dataset, norm, weight)
+    def __init__(self, dataset, name, norm='L2', weight=1.):
+        super(BoundaryCondition, self).__init__(dataset, name, norm, weight)
 
     def __call__(self, *args, **kwargs):
         raise NotImplementedError("The call function of the Boundary Condition has to be implemented")
@@ -18,7 +17,7 @@ class DirichletBC(BoundaryCondition):
     """
 
     def __init__(self, func, dataset, name, norm='L2',weight=1.):
-        super(DirichletBC, self).__init__(name, dataset, norm, weight)
+        super(DirichletBC, self).__init__(dataset, name, norm, weight)
         self.func = func
 
     def __call__(self, x, model):
@@ -44,7 +43,7 @@ class NeumannBC(BoundaryCondition):
             end: defines the end of the spatial domain in x
             output_dimension defines on which dimension of the output the boundary condition performed
         """
-        super(NeumannBC, self).__init__(name, dataset, norm, weight)
+        super(NeumannBC, self).__init__(dataset, name, norm, weight)
         self.func = func
         self.normal_vector = normal_vector
         self.begin = begin
@@ -80,7 +79,7 @@ class RobinBC(BoundaryCondition):
                 output_dimension defines on which dimension of the output the boundary condition performed
         """
 
-        super(RobinBC, self).__init__(name, dataset, norm, weight)
+        super(RobinBC, self).__init__(dataset, name, norm, weight)
         self.func = func
         self.begin = begin
         self.end = end
@@ -105,7 +104,7 @@ class PeriodicBC(BoundaryCondition):
     """
 
     def __init__(self, dataset, output_dimension, name, degree=None, input_dimension=None,  norm='L2', weight=1.):
-        super(PeriodicBC, self).__init__(name, dataset, norm, weight)
+        super(PeriodicBC, self).__init__(dataset, name, norm, weight)
         if degree is not None and input_dimension is None:
             raise ValueError("If the degree of the boundary condition is defined the input dimension for the "
                              "derivative has to be defined too ")

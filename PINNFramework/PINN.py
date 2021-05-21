@@ -13,6 +13,7 @@ try:
 except:
     print("Was not able to import Horovod. Thus Horovod support is not enabled")
 
+
 class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
@@ -40,7 +41,8 @@ class PINN(nn.Module):
         # checking if the model is a torch module more model checking should be possible
         self.use_gpu = use_gpu
         self.use_horovod = use_horovod
-        self.rank = 0 # initialize rank 0 by default in order to make the fit method more flexible
+        self.rank = 0  # initialize rank 0 by default in order to make the fit method more flexible
+        self.loss_log = {}
         if self.use_horovod:
             # Initialize Horovod
             hvd.init()
@@ -80,7 +82,7 @@ class PINN(nn.Module):
         else:
             raise TypeError("PDE loss has to be an instance of a PDE Loss class")
 
-        if isinstance(pde_loss,HPMLoss):
+        if isinstance(pde_loss, HPMLoss):
             self.is_hpm = True
 
         if isinstance(initial_condition, InitialCondition):
@@ -88,18 +90,25 @@ class PINN(nn.Module):
         else:
             raise TypeError("Initial condition has to be an instance of the InitialCondition class")
 
-        joined_datasets = {"Initial_Condition": initial_condition.dataset, "PDE": pde_loss.dataset}
+        joined_datasets = {
+            initial_condition.name: initial_condition.dataset,
+            pde_loss.name: pde_loss.dataset
+        }
+        self.loss_log[initial_condition.name] = float(0.0)  # adding initial condition to the loss_log
+        self.loss_log[pde_loss.name] = float(0.0)
+
         if not self.is_hpm:
             if type(boundary_condition) is list:
                 for bc in boundary_condition:
                     if not isinstance(bc, BoundaryCondition):
                         raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
-                    self.boundary_condition = boundary_condition
                     joined_datasets[bc.name] = bc.dataset
-
+                    self.loss_log[bc.name] = float(0.0)
+                self.boundary_condition = boundary_condition
             else:
                 if isinstance(boundary_condition, BoundaryCondition):
                     self.boundary_condition = boundary_condition
+                    joined_datasets[boundary_condition.name] = boundary_condition.dataset
                 else:
                     raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
                                     "or a list of instances of the BoundaryCondition class")
@@ -162,7 +171,7 @@ class PINN(nn.Module):
                 else:
                     raise ValueError(
                         "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
-                        format(boundary_condition.name))
+                            format(boundary_condition.name))
             else:
                 raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
                                  format(boundary_condition.name))
@@ -190,7 +199,7 @@ class PINN(nn.Module):
                 else:
                     raise ValueError(
                         "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
-                        format(boundary_condition.name))
+                            format(boundary_condition.name))
             else:
                 raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
                                  format(boundary_condition.name))
@@ -208,12 +217,16 @@ class PINN(nn.Module):
 
         pinn_loss = 0
         # unpack training data
-        if type(training_data["Initial_Condition"]) is list:
+        if type(training_data[self.initial_condition.name]) is list:
             # initial condition loss
-            if len(training_data["Initial_Condition"]) == 2:
-                pinn_loss = pinn_loss + self.initial_condition(training_data["Initial_Condition"][0][0].type(self.dtype),
-                                                               self.model,
-                                                               training_data["Initial_Condition"][1][0].type(self.dtype))
+            if len(training_data[self.initial_condition.name]) == 2:
+                ic_loss = self.initial_condition(
+                    training_data[self.initial_condition.name][0][0].type(self.dtype),
+                    self.model,
+                    training_data[self.initial_condition.name][1][0].type(self.dtype)
+                )
+                self.loss_log[self.initial_condition.name] += ic_loss
+                pinn_loss += ic_loss
             else:
                 raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                                  " and ground truth values y")
@@ -221,21 +234,27 @@ class PINN(nn.Module):
             raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                              " and ground truth values y")
 
-        if type(training_data["PDE"]) is not list:
-            pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"][0].type(self.dtype), self.model)
+        if type(training_data[self.pde_loss.name]) is not list:
+            pde_loss = self.pde_loss(training_data[self.pde_loss.name][0].type(self.dtype), self.model)
+            pinn_loss = pinn_loss + pde_loss
+            self.loss_log[self.pde_loss.name] += pde_loss
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
         if not self.is_hpm:
             if isinstance(self.boundary_condition, list):
                 for bc in self.boundary_condition:
-                    pinn_loss = pinn_loss + self.calculate_boundary_condition(bc, training_data[bc.name])
+                    bc_loss = self.calculate_boundary_condition(bc, training_data[bc.name])
+                    pinn_loss = pinn_loss + bc_loss
+                    self.loss_log[bc.name] += bc_loss
             else:
-                pinn_loss = pinn_loss + self.calculate_boundary_condition(self.boundary_condition,
-                                                                          training_data[self.boundary_condition.name])
+                bc_loss = self.calculate_boundary_condition(self.boundary_condition,
+                                                            training_data[self.boundary_condition.name])
+                pinn_loss = pinn_loss + bc_loss
+                self.loss_log[self.boundary_condition.name] += bc_loss
         return pinn_loss
 
     def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, pretraining=False, epochs_pt=100, lbfgs_finetuning=True,
-            writing_cylcle=30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt'):
+            writing_cylcle=30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt', logger=None):
         """
         Function for optimizing the parameters of the PINN-Model
 
@@ -251,6 +270,7 @@ class PINN(nn.Module):
             save_model: enables or disables checkpointing
             pinn_path: defines the path where the pinn get stored
             hpm_path: defines the path where the hpm get stored
+            logger (Logger): tracks the convergence of all loss terms
 
         """
         if isinstance(self.pde_loss, HPMLoss):
@@ -270,6 +290,7 @@ class PINN(nn.Module):
 
             if lbfgs_finetuning and not self.use_horovod:
                 lbfgs_optim = torch.optim.LBFGS(params, lr=0.9)
+
                 def closure():
                     lbfgs_optim.zero_grad()
                     pinn_loss = self.pinn_loss(training_data)
@@ -321,23 +342,37 @@ class PINN(nn.Module):
             for epoch in range(epochs_pt):
                 for x, y in data_loader_pt:
                     optim.zero_grad()
-                    ic_loss = self.initial_condition(model=self.model,x=x.type(self.dtype), gt_y=y.type(self.dtype))
+                    ic_loss = self.initial_condition(model=self.model, x=x.type(self.dtype), gt_y=y.type(self.dtype))
                     ic_loss.backward()
                     optim.step()
                     if not self.rank:
                         print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch, epochs))
-        print("===== Maintraining =====")
+        print("===== Main training =====")
         for epoch in range(epochs):
+            batch_counter = 0.
+            pinn_loss_sum = 0.
             for training_data in data_loader:
                 optim.zero_grad()
                 pinn_loss = self.pinn_loss(training_data)
                 pinn_loss.backward()
                 optim.step()
-                if not self.rank:
-                    print("PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch, epochs))
-            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model and not self.rank:
-                self.save_model(pinn_path, hpm_path)
-                minimum_pinn_loss = pinn_loss
+                pinn_loss_sum += pinn_loss
+                batch_counter += 1
+            if not self.rank:
+                print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch, epochs))
+                if logger is not None and not epoch % writing_cylcle:
+                    logger.log_scalar(scalar=pinn_loss_sum/batch_counter, name="PINN Loss", epoch=epoch)
+                    for key, value in self.loss_log.items():
+                        logger.log_scalar(scalar=value / batch_counter, name=key, epoch=epoch)
+
+                # saving routine
+                if (pinn_loss_sum / batch_counter < minimum_pinn_loss) and save_model:
+                    self.save_model(pinn_path, hpm_path)
+                    minimum_pinn_loss = pinn_loss_sum / batch_counter
+
+                # reset loss log after the end of the epoch
+                for key in self.loss_log.keys():
+                    self.loss_log[key] = float(0)
 
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)

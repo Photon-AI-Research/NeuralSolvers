@@ -4,7 +4,7 @@ from torch.nn import Module
 
 
 class InitialCondition(LossTerm):
-    def __init__(self, dataset, norm='L2', weight=1.):
+    def __init__(self, dataset, name, norm='L2', weight=1.):
         """
         Constructor for the Initial condition
 
@@ -13,7 +13,7 @@ class InitialCondition(LossTerm):
             norm: Norm used for calculation PDE loss
             weight: Weighting for the loss term
         """
-        super(InitialCondition, self).__init__(dataset, norm, weight)
+        super(InitialCondition, self).__init__(dataset, name, norm, weight)
 
     def __call__(self, x: Tensor, model: Module, gt_y: Tensor):
         """

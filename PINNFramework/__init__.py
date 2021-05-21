@@ -5,6 +5,8 @@ from .BoundaryCondition import DirichletBC
 from .BoundaryCondition import RobinBC
 from .BoundaryCondition import NeumannBC
 from .PDELoss import PDELoss
+from .Logger_Interface import LoggerInterface
+from .WandB_Logger import WandbLogger
 from .PINN import PINN
 
 import PINNFramework.models
@@ -19,4 +21,6 @@ __all__ = [
     'PDELoss',
     'HPMLoss',
     'PINN',
-    'models']
+    'models',
+    'LoggerInterface',
+    'WandbLogger']

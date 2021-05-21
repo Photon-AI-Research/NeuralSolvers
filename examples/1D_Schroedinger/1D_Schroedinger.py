@@ -99,7 +99,7 @@ if __name__ == "__main__":
     ub = np.array([5.0, np.pi / 2])
     # initial condition
     ic_dataset = InitialConditionDataset(n0=50)
-    initial_condition = pf.InitialCondition(ic_dataset)
+    initial_condition = pf.InitialCondition(ic_dataset,"Initial Condition")
     # boundary conditions
     bc_dataset = BoundaryConditionDataset(nb=50, lb=lb, ub=ub)
     periodic_bc_u = pf.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
@@ -139,14 +139,18 @@ if __name__ == "__main__":
         return stack([f_u, f_v], 1)  # concatenate real part and imaginary part
 
 
-    pde_loss = pf.PDELoss(pde_dataset, schroedinger1d)
+    pde_loss = pf.PDELoss(pde_dataset, schroedinger1d, "PDE Loss 1D-Schroedinger")
+    args = {"Hidden Size": 100,
+            "Num Hidden": 4,
+            "Activation": "Tanh"}
+    logger = pf.WandbLogger(project="1D Schroedinger Benchmark", args=args, entity="aipp")
     model = pf.models.MLP(input_size=2, output_size=2, hidden_size=100, num_hidden=4, lb=lb, ub=ub)
     model.cuda()
     pinn = pf.PINN(model, 2, 2, pde_loss, initial_condition, [periodic_bc_u,
                                                               periodic_bc_v,
                                                               periodic_bc_u_x,
                                                               periodic_bc_v_x], use_gpu=True)
-    pinn.fit(50000, 'Adam', 1e-3, pretraining=True)
+    pinn.fit(50000, 'Adam', 1e-3, pretraining=False,logger=logger)
     pinn.load_model('best_model_pinn.pt')
     # Plotting
     data = scipy.io.loadmat('NLS.mat')
