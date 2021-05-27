@@ -7,6 +7,7 @@ from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, Neuma
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
+from torch.autograd import grad as grad
 
 try:
     import horovod.torch as hvd
@@ -36,6 +37,8 @@ class PINN(nn.Module):
             use_horovod: enables horovod support
 
         """
+
+
 
         super(PINN, self).__init__()
         # checking if the model is a torch module more model checking should be possible
@@ -113,6 +116,15 @@ class PINN(nn.Module):
                     raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
                                     "or a list of instances of the BoundaryCondition class")
         self.dataset = JoinedDataset(joined_datasets)
+
+    def loss_grad_std_wn(self, loss):
+        device = torch.device("cuda" if self.use_gpu else "cpu")
+        grad_ = torch.zeros((0), dtype=torch.float32, device=device)
+        model_grads = grad(loss, self.model.parameters(), allow_unused=True, retain_graph=True)
+        for elem in model_grads:
+            if elem is not None:
+                grad_ = torch.cat((grad_, elem.view(-1)))
+        return torch.std(grad_)
 
     def forward(self, x):
         """
@@ -204,7 +216,7 @@ class PINN(nn.Module):
                 raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
                                  format(boundary_condition.name))
 
-    def pinn_loss(self, training_data):
+    def pinn_loss(self, training_data, annealing=False):
         """
         Function for calculating the PINN loss. The PINN Loss is a weighted sum of losses for initial and boundary
         condition and the residual of the PDE
@@ -214,9 +226,19 @@ class PINN(nn.Module):
             dictionary holds the training data for initial condition at the key "Initial_Condition" training data for
             the PDE at the key "PDE" and the data for the boundary condition under the name of the boundary condition
         """
-
         pinn_loss = 0
         # unpack training data
+        # ============== PDE LOSS ============== "
+        if type(training_data[self.pde_loss.name]) is not list:
+            pde_loss = self.pde_loss(training_data[self.pde_loss.name][0].type(self.dtype), self.model)
+            if annealing:
+                std_pde = self.loss_grad_std_wn(pde_loss)
+            pinn_loss = pinn_loss + pde_loss
+            self.loss_log[self.pde_loss.name] += pde_loss
+        else:
+            raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
+
+        # ============== INITIAL CONDITION ============== "
         if type(training_data[self.initial_condition.name]) is list:
             # initial condition loss
             if len(training_data[self.initial_condition.name]) == 2:
@@ -225,36 +247,45 @@ class PINN(nn.Module):
                     self.model,
                     training_data[self.initial_condition.name][1][0].type(self.dtype)
                 )
-                self.loss_log[self.initial_condition.name] += ic_loss
-                pinn_loss += ic_loss
+                self.loss_log[self.initial_condition.name] += ic_loss / self.initial_condition.weight
+                if annealing:
+                    std_ic = self.loss_grad_std_wn(ic_loss)
+                    lambda_hat = std_pde / std_ic
+                    self.initial_condition.weight = (1 - 0.5) * self.initial_condition.weight + 0.5 * lambda_hat
+                pinn_loss = pinn_loss + ic_loss
             else:
                 raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                                  " and ground truth values y")
         else:
-            raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
+            raise ValueError("Training Data for initial condition is a tuple (x,y) with x the input coordinates"
                              " and ground truth values y")
 
-        if type(training_data[self.pde_loss.name]) is not list:
-            pde_loss = self.pde_loss(training_data[self.pde_loss.name][0].type(self.dtype), self.model)
-            pinn_loss = pinn_loss + pde_loss
-            self.loss_log[self.pde_loss.name] += pde_loss
-        else:
-            raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
+        # ============== BOUNDARY CONDITION ============== "
         if not self.is_hpm:
             if isinstance(self.boundary_condition, list):
                 for bc in self.boundary_condition:
                     bc_loss = self.calculate_boundary_condition(bc, training_data[bc.name])
+                    self.loss_log[bc.name] += bc_loss / bc.weight
+                    if annealing:
+                        std_bc = self.loss_grad_std_wn(bc_loss)
+                        lambda_hat = std_pde / std_bc
+                        bc.weight = (1 - 0.5) * bc.weight + 0.5 * lambda_hat
                     pinn_loss = pinn_loss + bc_loss
-                    self.loss_log[bc.name] += bc_loss
             else:
                 bc_loss = self.calculate_boundary_condition(self.boundary_condition,
                                                             training_data[self.boundary_condition.name])
+                self.loss_log[self.boundary_condition.name] += bc_loss / self.boundary_condition.weight
+                if annealing:
+                    std_bc = self.loss_grad_std_wn(bc_loss)
+                    lambda_hat = std_pde / std_bc
+                    self.boundary_condition.weight = (1 - 0.5) * self.boundary_condition.weight + 0.5 * lambda_hat
                 pinn_loss = pinn_loss + bc_loss
-                self.loss_log[self.boundary_condition.name] += bc_loss
+
         return pinn_loss
 
     def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, pretraining=False, epochs_pt=100, lbfgs_finetuning=True,
-            writing_cylcle=30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt', logger=None):
+            writing_cylcle=30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt', logger=None,
+            activate_annealing=False, annealing_cycle=100):
         """
         Function for optimizing the parameters of the PINN-Model
 
@@ -271,6 +302,8 @@ class PINN(nn.Module):
             pinn_path: defines the path where the pinn get stored
             hpm_path: defines the path where the hpm get stored
             logger (Logger): tracks the convergence of all loss terms
+            activate_annealing (Boolean): enables annealing
+            annealing_cycle (int): defines the periodicity of using annealing
 
         """
         if isinstance(self.pde_loss, HPMLoss):
@@ -351,9 +384,10 @@ class PINN(nn.Module):
         for epoch in range(epochs):
             batch_counter = 0.
             pinn_loss_sum = 0.
-            for training_data in data_loader:
+            for idx, training_data in enumerate(data_loader):
+                do_annealing = activate_annealing and (idx == 0) and not (epoch + 1) % annealing_cycle
                 optim.zero_grad()
-                pinn_loss = self.pinn_loss(training_data)
+                pinn_loss = self.pinn_loss(training_data, do_annealing)
                 pinn_loss.backward()
                 optim.step()
                 pinn_loss_sum += pinn_loss
@@ -361,10 +395,24 @@ class PINN(nn.Module):
             if not self.rank:
                 print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch, epochs))
                 if logger is not None and not epoch % writing_cylcle:
-                    logger.log_scalar(scalar=pinn_loss_sum/batch_counter, name="PINN Loss", epoch=epoch)
+                    logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
+                    logger.log_scalar(scalar=sum(self.loss_log.values()), name=" Non-Weighted PINN Loss", epoch=epoch)
                     for key, value in self.loss_log.items():
                         logger.log_scalar(scalar=value / batch_counter, name=key, epoch=epoch)
 
+                    logger.log_scalar(scalar=self.initial_condition.weight,
+                                      name=self.initial_condition.name + "_weight",
+                                      epoch=epoch)
+                    if not self.is_hpm:
+                        if isinstance(self.boundary_condition, list):
+                            for bc in self.boundary_condition:
+                                logger.log_scalar(scalar=bc.weight,
+                                                  name=bc.name + "_weight",
+                                                  epoch=epoch)
+                        else:
+                            logger.log_scalar(scalar=self.boundary_condition.weight,
+                                              name=self.boundary_condition.name + "_weight",
+                                              epoch=epoch)
                 # saving routine
                 if (pinn_loss_sum / batch_counter < minimum_pinn_loss) and save_model:
                     self.save_model(pinn_path, hpm_path)

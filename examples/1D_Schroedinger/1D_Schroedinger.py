@@ -142,7 +142,10 @@ if __name__ == "__main__":
     pde_loss = pf.PDELoss(pde_dataset, schroedinger1d, "PDE Loss 1D-Schroedinger")
     args = {"Hidden Size": 100,
             "Num Hidden": 4,
-            "Activation": "Tanh"}
+            "Activation": "Tanh",
+            "annealing": True,
+            "cycle": 100}
+
     logger = pf.WandbLogger(project="1D Schroedinger Benchmark", args=args, entity="aipp")
     model = pf.models.MLP(input_size=2, output_size=2, hidden_size=100, num_hidden=4, lb=lb, ub=ub)
     model.cuda()
@@ -150,7 +153,7 @@ if __name__ == "__main__":
                                                               periodic_bc_v,
                                                               periodic_bc_u_x,
                                                               periodic_bc_v_x], use_gpu=True)
-    pinn.fit(50000, 'Adam', 1e-3, pretraining=False,logger=logger)
+    pinn.fit(50000, 'Adam', 1e-3, pretraining=False, logger=logger, activate_annealing=True)
     pinn.load_model('best_model_pinn.pt')
     # Plotting
     data = scipy.io.loadmat('NLS.mat')

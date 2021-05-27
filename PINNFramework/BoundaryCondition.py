@@ -95,7 +95,7 @@ class RobinBC(BoundaryCondition):
         grad_y = grad_y[:, self.begin:self.end]
         self.normal_vector.to(y.device)  # move normal vector to the correct device
         y_dn = grad_y @ self.normal_vector
-        return self.weight * self.norm(y_dn, self.func(x,y))
+        return self.weight * self.norm(y_dn, self.func(x, y))
 
 
 class PeriodicBC(BoundaryCondition):
