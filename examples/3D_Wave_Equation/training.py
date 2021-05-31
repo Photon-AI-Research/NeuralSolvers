@@ -105,8 +105,10 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--path", dest="path", type=str)
     parser.add_argument("--iteration", dest="iteration", type=int, default=0)
-    parser.add_argument("--n0", dest="n0", type=int, default=int(130e6))
-    parser.add_argument("--batch_size", dest="batch_size", type=int)
+    parser.add_argument("--n0", dest="n0", type=int, default=int(134e6))
+    parser.add_argument("--nf", dest="nf", type=int, default=int(130e7))
+    parser.add_argument("--batch_size_n0", dest="batch_size_n0", type=int, default=50000)
+    parser.add_argument("--batch_size_nf", dest="batch_size_nf", type=int, default=50000)
     parser.add_argument("--normalize_labels", dest="normalize_labels", type=int)
     parser.add_argument("--num_experts", dest="num_experts", type=int)
     parser.add_argument("--hidden_size", dest="hidden_size", type=int)
@@ -118,6 +120,7 @@ if __name__ == "__main__":
     parser.add_argument("--frequency", dest="frequency", type=float, default=30.)
     parser.add_argument("--activation", dest="activation", type=str, default='tanh')
     parser.add_argument("--shuffle", dest="shuffle", type=int, default=0)
+    parser.add_argument("--annealing",dest="annealing",type=int, default=0)
     parser.add_argument("--k", dest="k", type=int, default=1)
     args = parser.parse_args()
 
@@ -127,11 +130,10 @@ if __name__ == "__main__":
     ic_dataset = ICDataset(path=args.path,
                            iteration=args.iteration,
                            n0=args.n0,
-                           batch_size=args.batch_size,
+                           batch_size=args.batch_size_nf,
                            normalize_labels=args.normalize_labels)
 
-    pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, 10e7, 30000)
-
+    pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, args.nf, args.batch_size_nf)
     visualize_gt_diagnostics(ic_dataset)
 
     if args.activation == 'tanh':
@@ -177,9 +179,6 @@ if __name__ == "__main__":
                                    num_hidden=8)
         model.cuda()
 
-        wandb.watch(model, log='all')
-
-
     def wave_eq(x, u):
         grads = torch.ones(u.shape, device=u.device)  # move to the same device as prediction
         # calculate first order derivatives
@@ -199,7 +198,8 @@ if __name__ == "__main__":
         f_u = u_tt - (u_zz + u_yy + u_xx)
         return f_u
 
-
+    logger = pf.WandbLogger(project='wave_equation_pinn', entity='aipp')
+    wandb.watch(model,log='all')
     initial_condition = pf.InitialCondition(ic_dataset)
     pde_condition = pf.PDELoss(pde_dataset, wave_eq)
 
@@ -218,5 +218,6 @@ if __name__ == "__main__":
              learning_rate=args.learning_rate,
              pretraining=True,
              epochs_pt=100,
-             lbfgs_finetuning=False
+             lbfgs_finetuning=False,
+             activate_annealing=args.annealing
              )

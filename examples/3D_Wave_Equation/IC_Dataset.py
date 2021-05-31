@@ -18,7 +18,7 @@ class ICDataset(Dataset):
         normalize_labels: enables min-max scaling of the measued data
         """
         ## creating the iteration and save the dataset attributes
-        series = io.Series(path,io.Access_Type.read_only)
+        series = io.Series(path, io.Access_Type.read_only)
         it = series.iterations[iteration]
         self.n0 = n0
         self.batch_size = batch_size
@@ -48,16 +48,16 @@ class ICDataset(Dataset):
         x = np.arange(0, x_length) * self.cell_width
 
         Z, Y, X = np.meshgrid(z, y, x, indexing='ij')
-        self.lb = [0, 0, 0, 0]
+        self.lb = [0, 0, 0, 2000]
 
         t = np.zeros(Z.shape) + (2000 * it.get_attribute("dt"))
-        z = Z.reshape(-1,1)
-        x = X.reshape(-1,1)
-        y = Y.reshape(-1,1)
-        t = t.reshape(-1,1)
+        z = Z.reshape(-1, 1)
+        x = X.reshape(-1, 1)
+        y = Y.reshape(-1, 1)
+        t = t.reshape(-1, 1)
         print(z.shape)
         self.input_x = np.concatenate([z,y,x,t], axis=1)
-        self.ub = [np.max(z), np.max(y), np.max(x), 2000]
+        self.ub = [np.max(z), np.max(y), np.max(x), 3000]
         self.e_field = E_x
         if normalize_labels:
             e_field_max = np.max(self.e_field)
