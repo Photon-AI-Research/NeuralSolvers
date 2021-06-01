@@ -9,6 +9,8 @@ from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
 from torch.autograd import grad as grad
 
+from PINNFramework.callbacks import CallbackList
+
 try:
     import horovod.torch as hvd
 except:
@@ -285,7 +287,7 @@ class PINN(nn.Module):
 
     def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, pretraining=False, epochs_pt=100, lbfgs_finetuning=True,
             writing_cylcle=30, save_model=True, pinn_path='best_model_pinn.pt', hpm_path='best_model_hpm.pt', logger=None,
-            activate_annealing=False, annealing_cycle=100):
+            activate_annealing=False, annealing_cycle=100, callbacks=None):
         """
         Function for optimizing the parameters of the PINN-Model
 
@@ -304,8 +306,15 @@ class PINN(nn.Module):
             logger (Logger): tracks the convergence of all loss terms
             activate_annealing (Boolean): enables annealing
             annealing_cycle (int): defines the periodicity of using annealing
+            callbacks (CallbackList): is a list of callbacks which are called at the end of a writing cycle. Can be used
+            for different purposes e.g. early stopping, visualization, model state logging etc.
 
         """
+        if callbacks is not None:
+            if not isinstance(callbacks, CallbackList):
+                raise ValueError("Callbacks has to be a instance of CallbackList but type {} was found".
+                                 format(type(callbacks)))
+
         if isinstance(self.pde_loss, HPMLoss):
             params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
             named_parameters = chain(self.model.named_parameters(), self.pde_loss.hpm_model.named_parameters())
@@ -413,6 +422,7 @@ class PINN(nn.Module):
                             logger.log_scalar(scalar=self.boundary_condition.weight,
                                               name=self.boundary_condition.name + "_weight",
                                               epoch=epoch)
+                    callbacks(epoch=epoch)
                 # saving routine
                 if (pinn_loss_sum / batch_counter < minimum_pinn_loss) and save_model:
                     self.save_model(pinn_path, hpm_path)

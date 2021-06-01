@@ -6,6 +6,7 @@ from torch import Tensor, ones, stack, load
 from torch.autograd import grad
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
+from torch import no_grad
 import matplotlib.gridspec as gridspec
 
 sys.path.append('../..')  # PINNFramework etc.
@@ -109,6 +110,39 @@ if __name__ == "__main__":
     # PDE
     pde_dataset = PDEDataset(20000, lb, ub)
 
+    # data for visualization
+    data = scipy.io.loadmat('NLS.mat')
+    t = data['tt'].flatten()[:, None]
+    x = data['x'].flatten()[:, None]
+    Exact = data['uu']
+    Exact_u = np.real(Exact)
+    Exact_v = np.imag(Exact)
+    Exact_h = np.sqrt(Exact_u ** 2 + Exact_v ** 2)
+    X, T = np.meshgrid(x, t)
+
+    X_star = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
+    u_star = Exact_u.T.flatten()[:, None]
+    v_star = Exact_v.T.flatten()[:, None]
+    h_star = Exact_h.T.flatten()[:, None]
+
+    class VisualisationCallback(pf.callbacks.Callback):
+        def __init__(self, model, logger):
+            self.model = model
+            self.logger = logger
+
+        def __call__(self, epoch, *args, **kwargs):
+            with no_grad():
+                pred = self.model(Tensor(X_star).type(pinn.dtype))
+                pred_u = pred[:, 0].detach().cpu().numpy()
+                pred_v = pred[:, 1].detach().cpu().numpy()
+                H_pred = np.sqrt(pred_u ** 2 + pred_v ** 2)
+                H_pred = H_pred.reshape(X.shape)
+                plt.imshow(H_pred.T, interpolation='nearest', cmap='YlGnBu',
+                           extent=[lb[1], ub[1], lb[0], ub[0]],
+                           origin='lower', aspect='auto')
+                plt.colorbar()
+                logger.log_image(plt, "h_squared", epoch)
+                plt.close()
 
     def schroedinger1d(x, u):
         pred = u
@@ -143,33 +177,27 @@ if __name__ == "__main__":
     args = {"Hidden Size": 100,
             "Num Hidden": 4,
             "Activation": "Tanh",
-            "annealing": True,
+            "annealing": False,
             "cycle": 100}
 
     logger = pf.WandbLogger(project="1D Schroedinger Benchmark", args=args, entity="aipp")
     model = pf.models.MLP(input_size=2, output_size=2, hidden_size=100, num_hidden=4, lb=lb, ub=ub)
     model.cuda()
+    callbacks = pf.callbacks.CallbackList([VisualisationCallback(model, logger)])
     pinn = pf.PINN(model, 2, 2, pde_loss, initial_condition, [periodic_bc_u,
                                                               periodic_bc_v,
                                                               periodic_bc_u_x,
                                                               periodic_bc_v_x], use_gpu=True)
-    pinn.fit(50000, 'Adam', 1e-3, pretraining=False, logger=logger, activate_annealing=True)
+    pinn.fit(epochs=50000,
+             optimizer='Adam',
+             learning_rate=1e-3,
+             pretraining=False,
+             logger=logger,
+             writing_cylcle=500,
+             activate_annealing=False,
+             callbacks=callbacks)
+
     pinn.load_model('best_model_pinn.pt')
-    # Plotting
-    data = scipy.io.loadmat('NLS.mat')
-    t = data['tt'].flatten()[:, None]
-    x = data['x'].flatten()[:, None]
-    Exact = data['uu']
-    Exact_u = np.real(Exact)
-    Exact_v = np.imag(Exact)
-    Exact_h = np.sqrt(Exact_u ** 2 + Exact_v ** 2)
-    X, T = np.meshgrid(x, t)
-
-    X_star = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
-    u_star = Exact_u.T.flatten()[:, None]
-    v_star = Exact_v.T.flatten()[:, None]
-    h_star = Exact_h.T.flatten()[:, None]
-
     pred = model(Tensor(X_star).cuda())
     pred_u = pred[:, 0].detach().cpu().numpy()
     pred_v = pred[:, 1].detach().cpu().numpy()

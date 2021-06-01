@@ -17,7 +17,6 @@ class WandbLogger(LoggerInterface):
         wandb.init(project=project, entity=entity)
         wandb.config.update(args)  # adds all of the arguments as config variable
 
-
     def log_scalar(self, scalar, name, epoch):
         """
         Logs a scalar to wandb
@@ -25,17 +24,45 @@ class WandbLogger(LoggerInterface):
         Args:
             scalar: the scalar to be logged
             name: name of the sclar
+            epoch: epoch in the training loop
         """
         wandb.log({name: scalar}, step=epoch)
 
-    def log_image(self, image, name):
-        wandb.log({name: [wandb.Image(image, caption=name)]}, step=self.epoch_counter)
+    def log_image(self, image, name, epoch):
+        """
+        Logs a image to wandb
 
-    def log_plot(self, plot, name):
-        wandb.log({name: plot}, step=self.epoch_counter)
+        Args:
+            image (Image) : the image to be logged
+            name (String) : name of the image
+            epoch (Integer) : epoch in the training loop
 
-    def log_histogram(self, histogram, name):
-        wandb.log({"gradients": wandb.Histogram(histogram)}, step=self.epoch_counter)
+        """
+        wandb.log({name: [wandb.Image(image, caption=name)]}, step=epoch)
+
+    def log_plot(self, plot, name, epoch):
+        """
+        Logs a plot to wandb
+
+        Args:
+            plot (plot) : the plot to be logged
+            name (String) : name of the plot
+            epoch (Integer) : epoch in the training loop
+
+        """
+        wandb.log({name: plot}, step=epoch)
+
+    def log_histogram(self, histogram,name, epoch):
+        """
+        Logs a histogram to wandb
+
+        Args:
+            histogram (histogram) : the histogram to be logged
+            name (String) : name of the histogram
+            epoch (Integer) : epoch in the training loop
+
+        """
+        wandb.log({name: wandb.Histogram(histogram)}, step=epoch)
 
 
 

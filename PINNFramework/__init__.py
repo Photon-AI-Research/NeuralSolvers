@@ -10,6 +10,7 @@ from .WandB_Logger import WandbLogger
 from .PINN import PINN
 
 import PINNFramework.models
+import PINNFramework.callbacks
 
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     'PINN',
     'models',
     'LoggerInterface',
-    'WandbLogger']
+    'WandbLogger',
+    'callbacks']
