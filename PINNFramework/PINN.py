@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from os.path import exists
 from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
@@ -302,9 +303,7 @@ class PINN(nn.Module):
 
         if self.is_hpm:
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
-
-
-
+        torch.save(checkpoint, checkpoint_path)
 
 
     def fit(self,
@@ -422,6 +421,11 @@ class PINN(nn.Module):
         start_epoch = 0
 
         # load checkpoint routine if a checkpoint path is set and its allowed to not overwrite the checkpoint
+        if not exists(checkpoint_path) and not restart:
+            raise FileNotFoundError(
+                "Checkpoint path {} do not exists. Please change the path to a existing checkpoint"
+                "or change the restart flag to true in order to create a new checkpoint"
+                .format(checkpoint_path))
         if checkpoint_path is not None and not restart:
             checkpoint = torch.load(checkpoint_path)
             start_epoch = checkpoint["epoch"]
@@ -434,11 +438,11 @@ class PINN(nn.Module):
             else:
                 self.boundary_condition.weight = checkpoint["weight_" + self.boundary_condition.name]
 
-            self.model.load_state_dict(checkpoint["model"])
+            self.model.load_state_dict(checkpoint["pinn_model"])
             if self.is_hpm:
                 self.pde_loss.hpm_model.load_state_dict(checkpoint["hpm_model"])
 
-            optimizer.load_state_dict(checkpoint['optimizer'])
+            optim.load_state_dict(checkpoint['optimizer'])
             minimum_pinn_loss = checkpoint["minimum_pinn_loss"]
 
         print("===== Pretraining =====")
@@ -452,7 +456,7 @@ class PINN(nn.Module):
                     if not self.rank:
                         print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch, epochs))
                         if not (epoch + 1) % writing_cylcle and checkpoint_path is not None:
-                            self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optimizer)
+                            self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
         print("===== Main training =====")
         for epoch in range(start_epoch, epochs):
             batch_counter = 0.
@@ -498,7 +502,7 @@ class PINN(nn.Module):
 
                 # writing checkpoint
                 if not (epoch + 1) % writing_cylcle and checkpoint_path is not None:
-                    self.write_checkpoint(checkpoint_path, epoch, False, minimum_pinn_loss, optimizer)
+                    self.write_checkpoint(checkpoint_path, epoch, False, minimum_pinn_loss, optim)
 
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)

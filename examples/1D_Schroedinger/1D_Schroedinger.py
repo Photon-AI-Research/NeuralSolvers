@@ -190,10 +190,13 @@ if __name__ == "__main__":
                                                               periodic_bc_v_x], use_gpu=True)
     pinn.fit(epochs=50000,
              optimizer='Adam',
+             checkpoint_path='checkpoint.pt',
+             restart=False,
              learning_rate=1e-3,
              pretraining=False,
+             epochs_pt=2000,
              logger=logger,
-             writing_cylcle=500,
+             writing_cylcle=50,
              activate_annealing=False,
              callbacks=callbacks)
 
