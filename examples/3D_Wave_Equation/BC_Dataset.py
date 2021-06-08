@@ -26,9 +26,7 @@ class BoundaryDataset(Dataset):
         # creating the first sampling strategy which is lhs sampling
         self.x_lb = Tensor(lb + (ub - lb) * lhs(4, self.nb)).float()  # creating nb sampling points
         r = randint(1, period+1, (self.nb, 4)).float()
-        r[:,-1] = 0 # no time shift
-
-        print("Random r", r)
+        r[:, -1] = 0 # no time shift
         self.x_ub = self.x_lb + r * domain_size
 
     def __len__(self):

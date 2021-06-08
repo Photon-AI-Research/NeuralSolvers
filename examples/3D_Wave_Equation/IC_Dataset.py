@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 
 class ICDataset(Dataset):
     
-    def __init__(self, path, iteration, n0, batch_size, normalize_labels=False):
+    def __init__(self, path, iteration, n0, batch_size, max_t, normalize_labels=False):
         """
         Constructor of the initial condition dataset. This function loads the data with open_pmd creates the input tensos as well the labels
         
@@ -48,16 +48,16 @@ class ICDataset(Dataset):
         x = np.arange(0, x_length) * self.cell_width
 
         Z, Y, X = np.meshgrid(z, y, x, indexing='ij')
-        self.lb = [0, 0, 0, 2000]
+        self.lb = [0, 0, 0, iteration]
 
-        t = np.zeros(Z.shape) + (2000 * it.get_attribute("dt"))
+        t = np.zeros(Z.shape) + (iteration * it.get_attribute("dt"))
         z = Z.reshape(-1, 1)
         x = X.reshape(-1, 1)
         y = Y.reshape(-1, 1)
         t = t.reshape(-1, 1)
-        print(z.shape)
-        self.input_x = np.concatenate([z,y,x,t], axis=1)
-        self.ub = [np.max(z), np.max(y), np.max(x), 3000]
+
+        self.input_x = np.concatenate([z, y, x, t], axis=1)
+        self.ub = [np.max(z), np.max(y), np.max(x), max_t]
         self.e_field = E_x
         if normalize_labels:
             e_field_max = np.max(self.e_field)
