@@ -158,7 +158,12 @@ class MoE(nn.Module):
         
         self.non_linear = non_linear
         if self.non_linear:
-            self.gating_network = MLP(input_size, num_experts, num_experts*2, 1, activation=F.relu).to(self.device)
+            self.gating_network = MLP(input_size,
+                                      num_experts,
+                                      num_experts*2,
+                                      1,
+                                      activation=F.relu,
+                                      normalize=False).to(self.device)
 
         assert(self.k <= self.num_experts)
 
