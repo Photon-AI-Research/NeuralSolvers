@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 
 
 class PDEDataset(Dataset):
-    def __init__(self, lb, ub, nf, batch_size):
+    def __init__(self, lb, ub, nf, batch_size, iterative_generation=False):
         """
         Constructor of the PDE Dataset
 
@@ -20,9 +20,11 @@ class PDEDataset(Dataset):
         self.ub = ub
         self.nf = nf
         self.batch_size = batch_size
+        self.iterative_generation = iterative_generation
 
         # creating the first sampling strategy which is lhs sampling
-        self.xf = lb + (ub - lb) * lhs(4, self.nf)  # creating xf
+        if not self.iterative_generation:
+            self.xf = lb + (ub - lb) * lhs(4, self.nf)  # creating xf
 
     def __len__(self):
         """
@@ -34,4 +36,8 @@ class PDEDataset(Dataset):
         """
         Yields the batches of xf
         """
-        return Tensor(self.xf[item * self.batch_size: (item + 1) * self.batch_size]).float()
+        if not self.iterative_generation:
+            return Tensor(self.xf[item * self.batch_size: (item + 1) * self.batch_size]).float()
+        else:
+            xf = self.lb + (self.ub - self.lb) * lhs(4, self.batch_size)  # creating xf
+            return xf
