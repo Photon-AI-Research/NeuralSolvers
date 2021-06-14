@@ -13,7 +13,7 @@ import torch.nn as nn
 from torch.distributions.normal import Normal
 import numpy as np
 import torch.nn.functional as F
-from PINNFramework.models import MLP
+from PINNFramework.models import FingerNet
 
 class SparseDispatcher(object):
     """Helper for implementing a mixture of experts.
@@ -145,7 +145,7 @@ class MoE(nn.Module):
         # instantiate experts
         # normalization of the MLPs is disabled cause the Gating Network performs the normalization
         self.experts = nn.ModuleList([
-            MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation).to(self.device)
+            FingerNet(lb, ub, hidden_size, num_hidden, activation, False).to(self.device)
             for _ in range(self.num_experts)
         ])
 
@@ -268,7 +268,7 @@ class MoE(nn.Module):
 
     def get_utilisation_loss(self):
         return self.loss
-
+    
     def forward(self, x, train=True, loss_coef=1e-2):
         """Args:
         x: tensor shape [batch_size, input_size]
@@ -282,6 +282,7 @@ class MoE(nn.Module):
         """
         # normalization is performed here for better convergence of the gating network
         x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
+
         gates, load = self.noisy_top_k_gating(x, train)
         # calculate importance loss
         importance = gates.sum(0)
