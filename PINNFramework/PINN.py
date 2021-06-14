@@ -18,7 +18,7 @@ except:
     print("Was not able to import Horovod. Thus Horovod support is not enabled")
 
 # set initial seed for torch and numpy
-torch.seed(42)
+torch.manual_seed(42)
 np.random.seed(42)
 
 def worker_init_fn(worker_id):
