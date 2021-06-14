@@ -290,6 +290,15 @@ class PINN(nn.Module):
                     self.boundary_condition.weight = (1 - 0.5) * self.boundary_condition.weight + 0.5 * lambda_hat
                 pinn_loss = pinn_loss + bc_loss
 
+        # ============== Model specific losses  ============== "
+        if hasattr(self.model, 'loss'):
+            pinn_loss = pinn_loss + self.model.loss
+            self.loss_log["model_loss_pinn"] += self.model.loss
+        if self.is_hpm:
+            if hasattr(self.pde_loss.model, 'loss'):
+                pinn_loss = pinn_loss + self.model.loss
+                self.loss_log["model_loss_hpm"] += self.model.loss
+
         return pinn_loss
 
     def write_checkpoint(self, checkpoint_path, epoch, pretraining, minimum_pinn_loss, optimizer):
@@ -485,9 +494,11 @@ class PINN(nn.Module):
                 if logger is not None and not epoch % writing_cylcle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
                     logger.log_scalar(scalar=sum(self.loss_log.values()), name=" Non-Weighted PINN Loss", epoch=epoch)
+                    # Log values of the loss terms
                     for key, value in self.loss_log.items():
                         logger.log_scalar(scalar=value / batch_counter, name=key, epoch=epoch)
 
+                    # Log weights of loss terms separately
                     logger.log_scalar(scalar=self.initial_condition.weight,
                                       name=self.initial_condition.name + "_weight",
                                       epoch=epoch)

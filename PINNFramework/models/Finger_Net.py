@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class FingerNet(nn.Module):
-    def __init__(self, lb, ub,numFeatures = 500, numLayers = 8, activation = torch.relu):
+    def __init__(self, lb, ub,numFeatures = 500, numLayers = 8, activation = torch.relu, normalize=True):
         torch.manual_seed(1234)
         super(FingerNet, self).__init__()
 
@@ -12,7 +12,7 @@ class FingerNet(nn.Module):
         self.lb = torch.tensor(lb).float()
         self.ub = torch.tensor(ub).float()
         self.activation = activation
-        
+        self.normalize = normalize
         self.init_layers()
 
 
@@ -62,7 +62,8 @@ class FingerNet(nn.Module):
                 nn.init.constant_(m.bias, 0)
                 
     def forward(self, x_in):
-        x = 2.0 * (x_in - self.lb) / (self.ub - self.lb) - 1.0    
+        if self.normalize:
+            x = 2.0 * (x_in - self.lb) / (self.ub - self.lb) - 1.0
 
         x_inx = x_in[:,0].view(-1,1)
         x_iny = x_in[:,1].view(-1,1)

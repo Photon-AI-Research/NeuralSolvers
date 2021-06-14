@@ -5,16 +5,17 @@ from .mlp import MLP
 from .activations.snake import Snake
 
 class SnakeMLP(MLP):
-    def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub, frequency):
+    def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub, frequency, normalize=True):
         super(MLP, self).__init__()
         self.linear_layers = nn.ModuleList()
         self.activation = nn.ModuleList()
         self.init_layers(input_size, output_size, hidden_size, num_hidden, frequency)
         self.lb = torch.tensor(lb).float()
         self.ub = torch.tensor(ub).float()
+        self.normalize = normalize
         
 
-    def init_layers(self, input_size, output_size, hidden_size, num_hidden,frequency):
+    def init_layers(self, input_size, output_size, hidden_size, num_hidden, frequency):
         self.linear_layers.append(nn.Linear(input_size, hidden_size))
         self.activation.append(Snake(frequency=frequency))
         for _ in range(num_hidden):
@@ -29,7 +30,8 @@ class SnakeMLP(MLP):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
-        x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
+        if self.normalize:
+            x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
         for i in range(len(self.linear_layers) - 1):
             x = self.linear_layers[i](x)
             x = self.activation[i](x)

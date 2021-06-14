@@ -191,7 +191,7 @@ if __name__ == "__main__":
     pinn.fit(epochs=50000,
              optimizer='Adam',
              checkpoint_path='checkpoint.pt',
-             restart=False,
+             restart=True,
              learning_rate=1e-3,
              pretraining=False,
              epochs_pt=2000,

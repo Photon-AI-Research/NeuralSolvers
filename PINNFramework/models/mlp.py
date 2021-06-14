@@ -3,14 +3,14 @@ import torch.nn as nn
 
 
 class MLP(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub, activation=torch.tanh):
+    def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub, activation=torch.tanh, normalize=True):
         super(MLP, self).__init__()
         self.linear_layers = nn.ModuleList()
         self.activation = activation
         self.init_layers(input_size, output_size, hidden_size,num_hidden)
         self.lb = torch.Tensor(lb).float()
         self.ub = torch.Tensor(ub).float()
-
+        self.normalize = normalize
 
     def init_layers(self, input_size, output_size, hidden_size, num_hidden):
         self.linear_layers.append(nn.Linear(input_size, hidden_size))
@@ -22,10 +22,10 @@ class MLP(nn.Module):
             if isinstance(m, nn.Linear):
                 nn.init.xavier_normal_(m.weight)
                 nn.init.constant_(m.bias, 0)
-    
 
     def forward(self, x):
-        x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
+        if self.normalize:
+            x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
         for i in range(len(self.linear_layers) - 1):
             x = self.linear_layers[i](x)
             x = self.activation(x)
@@ -43,6 +43,6 @@ class MLP(nn.Module):
         self.ub = self.ub.cpu()
         
     def to(self, device):
-        super(SnakeMLP,self).to(device)
+        super(MLP,self).to(device)
         self.lb.to(device)
         self.ub.to(device)

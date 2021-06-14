@@ -143,12 +143,20 @@ class MoE(nn.Module):
         self.loss = 0
 
         # instantiate experts
+        # normalization of the MLPs is disabled cause the Gating Network performs the normalization
         self.experts = nn.ModuleList([
-            MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation, device=device).to(self.device)
+            MLP(input_size,
+                output_size,
+                hidden_size,
+                num_hidden,
+                lb,
+                ub,
+                activation,
+                device=device,
+                normalize=False).to(self.device)
             for i in range(self.num_experts)
         ])
 
-        
         self.w_gate = nn.Parameter(torch.randn(input_size, num_experts, device=self.device), requires_grad=True)
         self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts, device=self.device), requires_grad=True)
 
@@ -281,12 +289,15 @@ class MoE(nn.Module):
         training loss of the model.  The backpropagation of this loss
         encourages all experts to be approximately equally used across a batch.
         """
+        # normalization is performed here for better convergence of the gating network
+        x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
         gates, load = self.noisy_top_k_gating(x, train)
         # calculate importance loss
         importance = gates.sum(0)
         #
         loss = self.cv_squared(importance) + self.cv_squared(load)
         loss *= loss_coef
+        self.loss = loss
 
         dispatcher = SparseDispatcher(self.num_experts, gates, self.device)
         expert_inputs = dispatcher.dispatch(x)
