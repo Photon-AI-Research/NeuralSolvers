@@ -157,7 +157,7 @@ if __name__ == "__main__":
 
     initial_condition = pf.InitialCondition(ic_dataset, "Initial Condition")
 
-    pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, args.nf, args.batch_size_nf)
+    pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, args.nf, args.batch_size_nf, iterative_generation=True)
     pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
 
     boundary_dataset = BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, period=1)
@@ -207,7 +207,7 @@ if __name__ == "__main__":
                    output_dimension=1,
                    pde_loss=pde_condition,
                    initial_condition=initial_condition,
-                   boundary_condition=boundary_condition,
+                   boundary_condition=[],
                    use_gpu=True,
                    use_horovod=True
                    )

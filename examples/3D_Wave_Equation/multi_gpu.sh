@@ -22,8 +22,8 @@ cd /scratch/ws/1/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation
 srun python training.py --path /scratch/ws/1/s7520458-pinn_wave/test/runs/006_laserOnly\
                         --iteration 2000\
                         --batch_size_n0 50000\
-                        --batch_size_nb 50000\
-                        --batch_size_nf 50000\
+                        --batch_size_nb 7142\
+                        --batch_size_nf 100000\
                         --num_experts 7\
                         --hidden_size 2000\
                         --num_hidden 8\
@@ -36,6 +36,6 @@ srun python training.py --path /scratch/ws/1/s7520458-pinn_wave/test/runs/006_la
                         --k 2\
                         --shuffle 0\
                         --n0 134000000\
-                        --nf 134000000000\
+                        --nf 7000000000\
                         --nb 50000000\
                         --max_k 2100
