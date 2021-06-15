@@ -40,7 +40,7 @@ class BoundaryConditionDataset(Dataset):
         """
         There exists no batch processing. So the size is 1
         """
-        return 1
+        return 6
 
 
 class InitialConditionDataset(Dataset):
@@ -69,7 +69,7 @@ class InitialConditionDataset(Dataset):
         """
         There exists no batch processing. So the size is 1
         """
-        return 1
+        return 6
 
     def __getitem__(self, idx):
         x = np.concatenate([self.x, self.t], axis=1)
@@ -91,7 +91,7 @@ class PDEDataset(Dataset):
         """
         There exists no batch processing. So the size is 1
         """
-        return 1
+        return 6
 
 
 if __name__ == "__main__":
@@ -179,27 +179,30 @@ if __name__ == "__main__":
             "Activation": "Tanh",
             "annealing": False,
             "cycle": 100}
-
-    logger = pf.WandbLogger(project="1D Schroedinger Benchmark", args=args, entity="aipp")
+    
     model = pf.models.MLP(input_size=2, output_size=2, hidden_size=100, num_hidden=4, lb=lb, ub=ub)
     model.cuda()
-    callbacks = pf.callbacks.CallbackList([VisualisationCallback(model, logger)])
     pinn = pf.PINN(model, 2, 2, pde_loss, initial_condition, [periodic_bc_u,
                                                               periodic_bc_v,
                                                               periodic_bc_u_x,
-                                                              periodic_bc_v_x], use_gpu=True)
-    pinn.fit(epochs=50000,
+                                                              periodic_bc_v_x], use_gpu=True,use_horovod=True)
+    if pinn.rank == 0:
+        logger = pf.WandbLogger(project="1D Schroedinger Benchmark", args=args, entity="aipp")
+    else:
+        logger = None 
+    callbacks = pf.callbacks.CallbackList([VisualisationCallback(model, logger)])
+    pinn.fit(epochs=10000,
              optimizer='Adam',
              checkpoint_path='checkpoint.pt',
-             restart=False,
+             restart=True,
              learning_rate=1e-3,
              pretraining=False,
              epochs_pt=2000,
              logger=logger,
-             writing_cylcle=50,
+             writing_cylcle=500,
              activate_annealing=False,
-             callbacks=callbacks)
-
+             callbacks=callbacks,lbfgs_finetuning=False)
+"""
     pinn.load_model('best_model_pinn.pt')
     pred = model(Tensor(X_star).cuda())
     pred_u = pred[:, 0].detach().cpu().numpy()
@@ -211,4 +214,4 @@ if __name__ == "__main__":
                   origin='lower', aspect='auto')
     plt.colorbar()
     plt.show()
-
+"""
