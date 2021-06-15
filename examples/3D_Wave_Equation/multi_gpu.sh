@@ -1,24 +1,41 @@
 #!/bin/bash -l
-#SBATCH -t 24:00:00
-#SBATCH --nodes 2
-#SBATCH --ntasks-per-node=4
-#SBATCH --cpus-per-task=6
-#SBATCH --gres=gpu:4
-#SBATCH -p fwkt_v100
-#SBATCH -A fwkt_v100
-#SBATCH --job-name waveEq
-#SBATCH -o waveEq.out
 
-module load cuda/11.2
-module load gcc
-module load openmpi/2.1.2-cuda112
+#SBATCH -p ml
+#SBATCH -t 00:15:00
+#SBATCH --nodes=2
+#SBATCH --ntasks=12
+#SBATCH --cpus-per-task=29
+#SBATCH --gres=gpu:6
+#SBATCH -e error.out
+#SBATCH -o output.out
+#SBATCH -A p_da_aipp
 
-source /home/stille15/ml_env/bin/activate
-cd /home/stille15/NeuralSolvers/examples/3D_Wave_Equation
+module load modenv/ml
+#module use /beegfs/global0/ws/s3248973-easybuild/easybuild-ml/modules/all/
+module load PyTorch/1.6.0-fosscuda-2019b-Python-3.7.4
+module load matplotlib/3.1.1-fosscuda-2019b-Python-3.7.4
+module load h5py/2.10.0-fosscuda-2019b-Python-3.7.4
 
+source ~/neural_solvers/bin/activate
 
-mpirun -np 8 \
-    -bind-to none -map-by slot \
-    -x NCCL_DEBUG=INFO -x LD_LIBRARY_PATH -x PATH \
-    -mca pml ob1 -mca btl ^openib \
-    python training.py --path /bigdata/hplsim/production/AIPP/Data/LaserEvolution/runs/004_LaserOnly/simOutput/h5/simData_%T.h5 --iteration 2000 --batch_size 50000 --num_experts 7 --hidden_size 2000 --num_hidden 8 --num_epochs 2000  --learning_rate 3e-5 --normalize_labels 1 --model finger --frequency 5  --activation sin  --k 2 --shuffle 0 --n0 134000000
+cd /scratch/ws/1/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation
+srun python training.py --path /scratch/ws/1/s7520458-pinn_wave/test/runs/006_laserOnly\
+                        --iteration 2000\
+                        --batch_size_n0 50000\
+                        --batch_size_nb 50000\
+                        --batch_size_nf 50000\
+                        --num_experts 7\
+                        --hidden_size 2000\
+                        --num_hidden 8\
+                        --num_epochs 2000\
+                        --learning_rate 3e-5\
+                        --normalize_labels 1\
+                        --model finger\
+                        --frequency 5\
+                        --activation sin\
+                        --k 2\
+                        --shuffle 0\
+                        --n0 134000000\
+                        --nf 134000000000\
+                        --nb 50000000\
+                        --max_k 2100
