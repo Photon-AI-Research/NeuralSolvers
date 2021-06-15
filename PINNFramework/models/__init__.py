@@ -1,8 +1,9 @@
 from .mlp import MLP
 from .distributed_moe import MoE as distMoe
-from .moe import MoE as MoE
+from .moe_mlp import MoE as MoE
 from .snake_mlp import SnakeMLP
 from .Finger_Net import FingerNet
+from .moe_finger import MoE as FingerMoE
 from . import activations
 __all__ = [
     'MLP',
@@ -10,6 +11,7 @@ __all__ = [
     'distMoe',
     'SnakeMLP',
     'FingerNet',
+    'FingerMoE',
     'activations'
     
 ]

@@ -15,7 +15,7 @@ args = parser.parse_args()
 if args.distributed:
     from PINNFramework.models.distributed_moe import MoE
 else:
-    from PINNFramework.models.moe import MoE
+    from PINNFramework.models.moe_mlp import MoE
 
 if __name__ == "__main__":
     model = MoE(3, 3, 7, 300, 5, lb=[0, 0, 0], ub=[1, 1, 1], device='cuda:0', k=1).eval()

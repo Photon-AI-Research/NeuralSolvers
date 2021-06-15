@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from os.path import exists
 from itertools import chain
 from torch.utils.data import DataLoader
@@ -9,7 +10,6 @@ from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
 from torch.autograd import grad as grad
-
 from PINNFramework.callbacks import CallbackList
 
 try:
@@ -17,6 +17,12 @@ try:
 except:
     print("Was not able to import Horovod. Thus Horovod support is not enabled")
 
+# set initial seed for torch and numpy
+torch.manual_seed(42)
+np.random.seed(42)
+
+def worker_init_fn(worker_id):
+    np.random.seed(np.random.get_state()[1][0] + worker_id)
 
 class PINN(nn.Module):
 
@@ -284,6 +290,15 @@ class PINN(nn.Module):
                     self.boundary_condition.weight = (1 - 0.5) * self.boundary_condition.weight + 0.5 * lambda_hat
                 pinn_loss = pinn_loss + bc_loss
 
+        # ============== Model specific losses  ============== "
+        if hasattr(self.model, 'loss'):
+            pinn_loss = pinn_loss + self.model.loss
+            self.loss_log["model_loss_pinn"] += self.model.loss
+        if self.is_hpm:
+            if hasattr(self.pde_loss.model, 'loss'):
+                pinn_loss = pinn_loss + self.model.loss
+                self.loss_log["model_loss_hpm"] += self.model.loss
+
         return pinn_loss
 
     def write_checkpoint(self, checkpoint_path, epoch, pretraining, minimum_pinn_loss, optimizer):
@@ -304,6 +319,7 @@ class PINN(nn.Module):
         if self.is_hpm:
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
         torch.save(checkpoint, checkpoint_path)
+
 
 
     def fit(self,
@@ -401,13 +417,16 @@ class PINN(nn.Module):
             train_sampler = torch.utils.data.distributed.DistributedSampler(
                 self.dataset, num_replicas=hvd.size(), rank=hvd.rank()
             )
-            data_loader = DataLoader(self.dataset, batch_size=1, sampler=train_sampler)
+            data_loader = DataLoader(self.dataset, batch_size=1, sampler=train_sampler, worker_init_fn=worker_init_fn)
             optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
             if pretraining:
                 train_sampler_pt = torch.utils.data.distributed.DistributedSampler(
                     self.initial_condition.dataset, num_replicas=hvd.size(), rank=hvd.size()
                 )
-                data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None, sampler=train_sampler_pt)
+                data_loader_pt = DataLoader(self.initial_condition.dataset,
+                                            batch_size=None,
+                                            sampler=train_sampler_pt,
+                                            worker_init_fn=worker_init_fn)
             # Broadcast parameters from rank 0 to all other processes.
             hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
             if isinstance(self.pde_loss, HPMLoss):
@@ -415,8 +434,8 @@ class PINN(nn.Module):
             hvd.broadcast_optimizer_state(optim, root_rank=0)
 
         else:
-            data_loader = DataLoader(self.dataset, batch_size=1)
-            data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None)
+            data_loader = DataLoader(self.dataset, batch_size=1, worker_init_fn=worker_init_fn)
+            data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None, worker_init_fn=worker_init_fn)
 
         start_epoch = 0
 
@@ -459,6 +478,7 @@ class PINN(nn.Module):
                             self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
         print("===== Main training =====")
         for epoch in range(start_epoch, epochs):
+            np.random.seed(42 + epoch)
             batch_counter = 0.
             pinn_loss_sum = 0.
             for idx, training_data in enumerate(data_loader):
@@ -474,9 +494,11 @@ class PINN(nn.Module):
                 if logger is not None and not epoch % writing_cylcle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
                     logger.log_scalar(scalar=sum(self.loss_log.values()), name=" Non-Weighted PINN Loss", epoch=epoch)
+                    # Log values of the loss terms
                     for key, value in self.loss_log.items():
                         logger.log_scalar(scalar=value / batch_counter, name=key, epoch=epoch)
 
+                    # Log weights of loss terms separately
                     logger.log_scalar(scalar=self.initial_condition.weight,
                                       name=self.initial_condition.name + "_weight",
                                       epoch=epoch)
