@@ -46,9 +46,9 @@ class SparseDispatcher(object):
     `Tensor`s for expert i only the batch elements for which `gates[b, i] > 0`.
     """
 
-    def __init__(self, num_experts, gates, device = "cpu"):
+    def __init__(self, num_experts, gates, use_gpu=True):
         """Create a SparseDispatcher."""
-        self.device = device
+        self.use_gpu = use_gpu
         self._gates = gates
         self._num_experts = num_experts
         # sort experts
@@ -58,7 +58,11 @@ class SparseDispatcher(object):
         # get according batch index for each expert
         self._batch_index = sorted_experts[index_sorted_experts[:, 1],0]
         # calculate num samples that each expert gets
-        self._part_sizes = list((gates > 0).sum(0).to(device))
+        if self.use_gpu:
+            self._part_sizes = list((gates > 0).sum(0).cuda())
+        else:
+            self._part_sizes = list((gates > 0).sum(0))
+
         # expand gates to match with self._batch_index
         gates_exp = gates[self._batch_index.flatten()]
         self._nonzero_gates = torch.gather(gates_exp, 1, self._expert_index)
@@ -99,7 +103,11 @@ class SparseDispatcher(object):
 
         if multiply_by_gates:
             stitched = stitched.mul(self._nonzero_gates)
-        zeros = torch.zeros(self._gates.size(0), expert_out[-1].size(1), requires_grad=True).to(self.device)#.cuda()
+        if self.use_gpu:
+            zeros = torch.zeros(self._gates.size(0), expert_out[-1].size(1), requires_grad=True).cuda()
+        else:
+            zeros = torch.zeros(self._gates.size(0), expert_out[-1].size(1), requires_grad=True)
+
         # combine samples that have been processed by the same k experts
         combined = zeros.index_add(0, self._batch_index, stitched.float())
         # add eps to all zero values in order to avoid nans when going back to log space
@@ -131,30 +139,43 @@ class MoE(nn.Module):
 
     def __init__(self, input_size, output_size, num_experts,
                  hidden_size, num_hidden, lb, ub, activation=torch.tanh,
-                 non_linear=False, noisy_gating=False, k=1, device="cpu"):
+                 non_linear=False, noisy_gating=False, k=1,):
         super(MoE, self).__init__()
         self.noisy_gating = noisy_gating
         self.num_experts = num_experts
         self.output_size = output_size
         self.input_size = input_size
         self.hidden_size = hidden_size
-        self.device = device
+        self.use_gpu = False
         self.k = k
         self.loss = 0
+        self.lb = torch.Tensor(lb).float()
+        self.ub = torch.Tensor(ub).float()
 
         # instantiate experts
         # normalization of the MLPs is disabled cause the Gating Network performs the normalization
         self.experts = nn.ModuleList([
-            MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation).to(self.device)
+            MLP(input_size, output_size, hidden_size, num_hidden, lb, ub, activation)
             for _ in range(self.num_experts)
         ])
 
-        self.w_gate = nn.Parameter(torch.randn(input_size, num_experts, device=self.device), requires_grad=True)
-        self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts, device=self.device), requires_grad=True)
+        self.w_gate = torch.randn(input_size, num_experts, requires_grad=True)
+        self.w_noise = torch.zeros(input_size, num_experts, requires_grad=True)
+
+        if self.use_gpu:
+            self.w_gate = self.w_gate.cuda()
+            self.w_noise = self.w_noise.cuda()
+
+        self.w_gate = torch.nn.Parameter(self.w_gate)
+        self.w_noise = torch.nn.Parameter(self.w_noise)
 
         self.softplus = nn.Softplus()
         self.softmax = nn.Softmax(1)
-        self.normal = Normal(torch.tensor([0.0]).to(self.device), torch.tensor([1.0]))
+
+        if self.use_gpu:
+            self.normal = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
+        else:
+            self.normal = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
         
         self.non_linear = non_linear
         if self.non_linear:
@@ -162,8 +183,12 @@ class MoE(nn.Module):
                                       num_experts,
                                       num_experts*2,
                                       1,
+                                      lb,
+                                      ub,
                                       activation=F.relu,
-                                      normalize=False).to(self.device)
+                                      normalize=False)
+            if self.use_gpu:
+                self.gating_network.cuda()
 
         assert(self.k <= self.num_experts)
 
@@ -215,10 +240,17 @@ class MoE(nn.Module):
         batch = clean_values.size(0)
         m = noisy_top_values.size(1)
         top_values_flat = noisy_top_values.flatten()
-        threshold_positions_if_in = (torch.arange(batch) * m + self.k).to(self.device)
+        if self.use_gpu:
+            threshold_positions_if_in = (torch.arange(batch) * m + self.k).cuda()
+        else:
+            threshold_positions_if_in = (torch.arange(batch) * m + self.k)
+
         threshold_if_in = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_in), 1)
         is_in = torch.gt(noisy_values, threshold_if_in)
-        threshold_positions_if_out = (threshold_positions_if_in - 1).to(self.device)
+        if self.use_gpu:
+            threshold_positions_if_out = (threshold_positions_if_in - 1).cuda()
+        else:
+            threshold_positions_if_out = (threshold_positions_if_in - 1)
         threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
         # is each value currently in the top k.
         prob_if_in = self.normal.cdf((clean_values - threshold_if_in)/noise_stddev)
@@ -295,7 +327,7 @@ class MoE(nn.Module):
         loss *= loss_coef
         self.loss = loss
 
-        dispatcher = SparseDispatcher(self.num_experts, gates, self.device)
+        dispatcher = SparseDispatcher(self.num_experts, gates, self.use_gpu)
         expert_inputs = dispatcher.dispatch(x)
         gates = dispatcher.expert_to_gates()
         expert_outputs = []
@@ -304,3 +336,26 @@ class MoE(nn.Module):
                 expert_outputs.append(self.experts[i](expert_inputs[i]))
         y = dispatcher.combine(expert_outputs)
         return y
+
+    def cuda(self):
+        super(MoE, self).cuda()
+        self.use_gpu = True
+        for i in range(self.num_experts):
+            self.experts[i].cuda()
+        self.lb = self.lb.cuda()
+        self.ub = self.ub.cuda()
+        if self.non_linear:
+            self.gating_network.cuda()
+
+    def cpu(self):
+        super(MoE, self).cpu()
+        self.use_gpu = False
+        for i in range(self.num_experts):
+            self.experts[i].cpu()
+        self.lb = self.lb.cpu()
+        self.ub = self.ub.cpu()
+        if self.non_linear:
+            self.gating_network.cpu()
+
+
+

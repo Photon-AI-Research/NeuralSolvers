@@ -97,19 +97,18 @@ class FingerNet(nn.Module):
         x = self.lin_layers[-1](x)
    
         return x
-        
-    
+
     def cuda(self):
         super(FingerNet, self).cuda()
         self.lb = self.lb.cuda()
         self.ub = self.ub.cuda()
 
     def cpu(self):
-        super(FingerNet, self).cuda()
+        super(FingerNet, self).cpu()
         self.lb = self.lb.cpu()
         self.ub = self.ub.cpu()
         
     def to(self, device):
-        super(FingerNet,self).to(device)
+        super(FingerNet, self).to(device)
         self.lb.to(device)
         self.ub.to(device)
