@@ -28,7 +28,7 @@ class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
                  pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition,
-                 use_gpu=True, use_horovod=False):
+                 use_gpu=True, use_horovod=False,dataset_mode='min'):
         """
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
@@ -124,7 +124,7 @@ class PINN(nn.Module):
                 else:
                     raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
                                     "or a list of instances of the BoundaryCondition class")
-        self.dataset = JoinedDataset(joined_datasets)
+        self.dataset = JoinedDataset(joined_datasets, dataset_mode)
 
     def loss_grad_std_wn(self, loss):
         device = torch.device("cuda" if self.use_gpu else "cpu")
