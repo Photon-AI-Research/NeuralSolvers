@@ -145,9 +145,6 @@ if __name__ == "__main__":
     parser.add_argument("--max_t",dest="max_t", type=int, default=3000)
     args = parser.parse_args()
 
-    wandb.init(project='wave_equation_pinn', entity='aipp')
-    wandb.config.update(args)
-
     ic_dataset = ICDataset(path=args.path,
                            iteration=args.iteration,
                            n0=args.n0,
@@ -199,8 +196,6 @@ if __name__ == "__main__":
                                    num_hidden=8)
         model.cuda()
 
-    logger = pf.WandbLogger(project='wave_equation_pinn', entity='aipp')
-    wandb.watch(model, log='all')
 
     pinn = pf.PINN(model=model,
                    input_dimension=4,
@@ -212,7 +207,7 @@ if __name__ == "__main__":
                    use_horovod=True
                    )
     if pinn.rank == 0:
-        logger = pf.WandbLogger(project='wave_equation_pinn', entity='aipp')
+        logger = pf.WandbLogger(project='wave_equation_pinn',args=args, entity='aipp')
         wandb.watch(model, log='all')
         # visualization callbacks
         cb_2000 = VisualisationCallback(model, logger, 2000)
