@@ -125,7 +125,7 @@ if __name__ == "__main__":
     parser.add_argument("--iteration", dest="iteration", type=int, default=2000)
     parser.add_argument("--n0", dest="n0", type=int, default=int(134e6))
     parser.add_argument("--nf", dest="nf", type=int, default=int(130e9))
-    parser.add_argument("--nb", dest="nf", type=int, default=int(5e7))
+    parser.add_argument("--nb", dest="nb", type=int, default=int(5e6))
     parser.add_argument("--batch_size_n0", dest="batch_size_n0", type=int, default=50000)
     parser.add_argument("--batch_size_nf", dest="batch_size_nf", type=int, default=50000)
     parser.add_argument("--batch_size_nb", dest="batch_size_nb", type=int, default=50000)
@@ -152,10 +152,12 @@ if __name__ == "__main__":
                            iteration=args.iteration,
                            n0=args.n0,
                            batch_size=args.batch_size_n0,
+                           max_t=args.max_t,
                            normalize_labels=args.normalize_labels)
+
     initial_condition = pf.InitialCondition(ic_dataset, "Initial Condition")
 
-    pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, args.nf, args.batch_size_nf)
+    pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, args.nf, args.batch_size_nf, iterative_generation=True)
     pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
 
     boundary_dataset = BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, period=1)
@@ -205,20 +207,17 @@ if __name__ == "__main__":
                    output_dimension=1,
                    pde_loss=pde_condition,
                    initial_condition=initial_condition,
-                   boundary_condition=boundary_condition,
+                   boundary_condition=[],
                    use_gpu=True,
                    use_horovod=True
                    )
     # visualization callbacks
-    cb_2000 = VisualisationCallback(model, logger,2000)
-    cb_2050 = VisualisationCallback(model, logger, 2050)
+    cb_2000 = VisualisationCallback(model, logger, 2000)
     cb_2100 = VisualisationCallback(model, logger, 2100)
-
 
     #write ground truth diagnostics
     if pinn.rank == 0:
         visualize_gt_diagnostics(cb_2000.dataset, 2000)
-        visualize_gt_diagnostics(cb_2050.dataset, 2050)
         visualize_gt_diagnostics(cb_2100.dataset, 2100)
 
     pinn.fit(epochs=args.num_epochs,
@@ -231,5 +230,6 @@ if __name__ == "__main__":
              activate_annealing=args.annealing,
              logger=logger,
              checkpoint_path="checkpoints/" + wandb.run.name + "_checkpoint.pt",
-             callbacks=pf.callbacks.CallbackList([cb_2000,cb_2050, cb_2100])
+             restart=True,
+             callbacks=pf.callbacks.CallbackList([cb_2000, cb_2100])
              )
