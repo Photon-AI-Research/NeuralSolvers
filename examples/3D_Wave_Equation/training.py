@@ -211,9 +211,14 @@ if __name__ == "__main__":
                    use_gpu=True,
                    use_horovod=True
                    )
-    # visualization callbacks
-    cb_2000 = VisualisationCallback(model, logger, 2000)
-    cb_2100 = VisualisationCallback(model, logger, 2100)
+    if pinn.rank == 0:
+        logger = pf.WandbLogger(project='wave_equation_pinn', entity='aipp')
+        wandb.watch(model, log='all')
+        # visualization callbacks
+        cb_2000 = VisualisationCallback(model, logger, 2000)
+        cb_2100 = VisualisationCallback(model, logger, 2100)
+    else:
+        logger = None
 
     #write ground truth diagnostics
     if pinn.rank == 0:
@@ -229,6 +234,7 @@ if __name__ == "__main__":
              writing_cylcle=100,
              activate_annealing=args.annealing,
              logger=logger,
+             restart=False,
              checkpoint_path="checkpoints/" + wandb.run.name + "_checkpoint.pt",
              callbacks=pf.callbacks.CallbackList([cb_2000, cb_2100])
              )
