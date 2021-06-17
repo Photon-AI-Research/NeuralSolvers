@@ -421,7 +421,7 @@ class PINN(nn.Module):
             optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
             if pretraining:
                 train_sampler_pt = torch.utils.data.distributed.DistributedSampler(
-                    self.initial_condition.dataset, num_replicas=hvd.size(), rank=hvd.size()
+                    self.initial_condition.dataset, num_replicas=hvd.size(), rank=hvd.rank()
                 )
                 data_loader_pt = DataLoader(self.initial_condition.dataset,
                                             batch_size=None,
