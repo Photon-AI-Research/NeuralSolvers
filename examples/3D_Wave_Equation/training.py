@@ -212,8 +212,10 @@ if __name__ == "__main__":
         # visualization callbacks
         cb_2000 = VisualisationCallback(model, logger, 2000)
         cb_2100 = VisualisationCallback(model, logger, 2100)
+        cb_list = pf.callbacks.CallbackList[cb_2000, cb_2100]
     else:
         logger = None
+        cb_list = None
 
     #write ground truth diagnostics
     if pinn.rank == 0:
@@ -231,5 +233,5 @@ if __name__ == "__main__":
              logger=logger,
              checkpoint_path="checkpoints/" + wandb.run.name + "_checkpoint.pt",
              restart=True,
-             callbacks=pf.callbacks.CallbackList([cb_2000, cb_2100])
+             callbacks=cb_list
              )
