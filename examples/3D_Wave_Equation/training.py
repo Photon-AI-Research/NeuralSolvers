@@ -121,6 +121,7 @@ def wave_eq(x, u):
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser = ArgumentParser()
+    parser.add_argument("--name", dest="name", type=str)
     parser.add_argument("--path", dest="path", type=str)
     parser.add_argument("--iteration", dest="iteration", type=int, default=2000)
     parser.add_argument("--n0", dest="n0", type=int, default=int(134e6))
@@ -215,11 +216,11 @@ if __name__ == "__main__":
         cb_2000 = VisualisationCallback(model, logger, 2000)
         cb_2100 = VisualisationCallback(model, logger, 2100)
         cb_list = pf.callbacks.CallbackList([cb_2000, cb_2100])
-        checkpoint_path = "checkpoints/" + wandb.run.name + "_checkpoint.pt"
+
     else:
         logger = None
         cb_list = None
-        checkpoint_path = None
+    checkpoint_path = "checkpoints/" + args.name + "_checkpoint.pt"
     print("callbacks are finished") 
     #write ground truth diagnostics
     if pinn.rank == 0:

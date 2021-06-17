@@ -440,11 +440,12 @@ class PINN(nn.Module):
         start_epoch = 0
 
         # load checkpoint routine if a checkpoint path is set and its allowed to not overwrite the checkpoint
-        if not exists(checkpoint_path) and not restart:
-            raise FileNotFoundError(
-                "Checkpoint path {} do not exists. Please change the path to a existing checkpoint"
-                "or change the restart flag to true in order to create a new checkpoint"
-                .format(checkpoint_path))
+        if checkpoint_path is not None:
+            if not exists(checkpoint_path) and not restart:
+                raise FileNotFoundError(
+                    "Checkpoint path {} do not exists. Please change the path to a existing checkpoint"
+                    "or change the restart flag to true in order to create a new checkpoint"
+                    .format(checkpoint_path))
         if checkpoint_path is not None and not restart:
             checkpoint = torch.load(checkpoint_path)
             start_epoch = checkpoint["epoch"]

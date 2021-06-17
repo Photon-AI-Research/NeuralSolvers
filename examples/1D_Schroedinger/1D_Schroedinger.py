@@ -121,6 +121,7 @@ if __name__ == "__main__":
     X, T = np.meshgrid(x, t)
 
     X_star = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
+    print("X_star", X_star.shape)
     u_star = Exact_u.T.flatten()[:, None]
     v_star = Exact_v.T.flatten()[:, None]
     h_star = Exact_h.T.flatten()[:, None]
