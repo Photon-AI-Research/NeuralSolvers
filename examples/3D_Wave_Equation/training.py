@@ -204,7 +204,8 @@ if __name__ == "__main__":
                    initial_condition=initial_condition,
                    boundary_condition=[],
                    use_gpu=True,
-                   use_horovod=True
+                   use_horovod=True,
+                   mode='max'
                    )
     print("generated pinn")
     if pinn.rank == 0:
@@ -214,9 +215,11 @@ if __name__ == "__main__":
         cb_2000 = VisualisationCallback(model, logger, 2000)
         cb_2100 = VisualisationCallback(model, logger, 2100)
         cb_list = pf.callbacks.CallbackList[cb_2000, cb_2100]
+        checkpoint_path = "checkpoints/" + wandb.run.name + "_checkpoint.pt"
     else:
         logger = None
         cb_list = None
+        checkpoint_path = None
     print("callbacks are finished") 
     #write ground truth diagnostics
     if pinn.rank == 0:
@@ -232,7 +235,7 @@ if __name__ == "__main__":
              writing_cylcle=100,
              activate_annealing=args.annealing,
              logger=logger,
-             checkpoint_path="checkpoints/" + wandb.run.name + "_checkpoint.pt",
+             checkpoint_path=checkpoint_path,
              restart=True,
              callbacks=cb_list
              )

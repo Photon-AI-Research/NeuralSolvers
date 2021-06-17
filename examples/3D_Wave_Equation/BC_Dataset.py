@@ -7,7 +7,7 @@ from torch import randint
 
 
 class BoundaryDataset(Dataset):
-    def __init__(self, lb, ub, nb, batch_size, period=1):
+    def __init__(self, lb, ub, nb, batch_size, period=1, direction=1):
         """
         Constructor of the PDE Dataset
 
@@ -25,9 +25,10 @@ class BoundaryDataset(Dataset):
         domain_size = self.ub - self.lb
         # creating the first sampling strategy which is lhs sampling
         self.x_lb = Tensor(self.lb + (self.ub - self.lb) * lhs(4, self.nb)).float()  # creating nb sampling points
-        r = randint(0, period+1, (self.nb, 4)).float()
-        r[:, -1] = 0 # no time shift
-        self.x_ub = self.x_lb + r * domain_size
+        self.x_lb[:, direction] = self.lb[direction]
+        mask = np.zeros(self.lb.shape)
+        mask[direction] = 1
+        self.x_ub = self.x_lb + mask * self.ub
 
     def __len__(self):
         """
