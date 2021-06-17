@@ -22,9 +22,9 @@ class BoundaryDataset(Dataset):
         self.ub = np.array(ub)
         self.nb = nb
         self.batch_size = batch_size
-        domain_size = ub - lb
+        domain_size = self.ub - self.lb
         # creating the first sampling strategy which is lhs sampling
-        self.x_lb = Tensor(lb + (ub - lb) * lhs(4, self.nb)).float()  # creating nb sampling points
+        self.x_lb = Tensor(self.lb + (self.ub - self.lb) * lhs(4, self.nb)).float()  # creating nb sampling points
         r = randint(0, period+1, (self.nb, 4)).float()
         r[:, -1] = 0 # no time shift
         self.x_ub = self.x_lb + r * domain_size
