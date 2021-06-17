@@ -16,8 +16,8 @@ class PDEDataset(Dataset):
             nf: defines the number of residual points used in total
             batch_size: defines the number of residual points yielded in a batch
         """
-        self.lb = lb
-        self.ub = ub
+        self.lb = np.array(lb)
+        self.ub = np.array(ub)
         self.nf = nf
         self.batch_size = batch_size
         self.iterative_generation = iterative_generation

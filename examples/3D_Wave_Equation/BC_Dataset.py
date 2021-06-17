@@ -18,8 +18,8 @@ class BoundaryDataset(Dataset):
             batch_size: defines the number of residual points yielded in a batch
             period: defines how many periods the spatial domain extended gets extended
         """
-        self.lb = lb
-        self.ub = ub
+        self.lb = np.array(lb)
+        self.ub = np.array(ub)
         self.nb = nb
         self.batch_size = batch_size
         domain_size = ub - lb
