@@ -229,7 +229,6 @@ if __name__ == "__main__":
              writing_cylcle=100,
              activate_annealing=args.annealing,
              logger=logger,
-             restart=False,
              checkpoint_path="checkpoints/" + wandb.run.name + "_checkpoint.pt",
              restart=True,
              callbacks=pf.callbacks.CallbackList([cb_2000, cb_2100])
