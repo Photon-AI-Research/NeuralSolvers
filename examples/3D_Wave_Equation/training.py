@@ -93,7 +93,7 @@ class VisualisationCallback(pf.callbacks.Callback):
             plt.ylabel("x")
             
             logger.log_image(fig1, "YZ Time: {}".format(self.time_step), epoch)
-            logger.log_image(fig2, "xZ Time: {}".format(self.time_step), epoch)
+            logger.log_image(fig2, "XZ Time: {}".format(self.time_step), epoch)
             logger.log_image(fig3, "YX Time: {}".format(self.time_step), epoch)
             plt.close('all')
 
@@ -109,6 +109,7 @@ def wave_eq(x, u):
     u_x = grad_u[:, 2]
     u_t = grad_u[:, 3]
 
+    grads = torch.ones(u_z.shape, device=u.device) # update for shapes
     # calculate second order derivatives
     u_zz = grad(u_z, x, create_graph=True, grad_outputs=grads)[0][:, 0]  # (z, y, x, t)
     u_yy = grad(u_y, x, create_graph=True, grad_outputs=grads)[0][:, 1]
