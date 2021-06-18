@@ -145,22 +145,19 @@ if __name__ == "__main__":
     parser.add_argument("--k", dest="k", type=int, default=1)
     parser.add_argument("--max_t",dest="max_t", type=int, default=3000)
     args = parser.parse_args()
-    print("read initial data")
     ic_dataset = ICDataset(path=args.path,
                            iteration=args.iteration,
                            n0=args.n0,
                            batch_size=args.batch_size_n0,
                            max_t=args.max_t,
                            normalize_labels=args.normalize_labels)
-
+    print("ic",len(ic_dataset))
     initial_condition = pf.InitialCondition(ic_dataset, "Initial Condition")
-    print("finished initial data")
     pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, args.nf, args.batch_size_nf, iterative_generation=True)
+    print("pde",len(pde_dataset))
     pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
-    print("finished pde")
     boundary_dataset = BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, period=1)
     boundary_condition = pf.PeriodicBC(boundary_dataset, 0, "Periodic Boundary Condition")
-    print("finished Boundary")
     if args.activation == 'tanh':
         activation = torch.tanh
     elif args.activation == 'sin':
@@ -208,7 +205,6 @@ if __name__ == "__main__":
                    use_horovod=True,
                    dataset_mode='max'
                    )
-    print("generated pinn")
     if pinn.rank == 0:
         logger = pf.WandbLogger(project='wave_equation_pinn',args=args, entity='aipp')
         wandb.watch(model, log='all')
