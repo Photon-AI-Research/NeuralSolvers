@@ -109,13 +109,13 @@ def wave_eq(x, u):
     u_x = grad_u[:, 2]
     u_t = grad_u[:, 3]
 
-    grads = torch.ones(u_z.shape, device=u.device) # update for shapes
+    grads = torch.ones(u_z.shape, device=u_z.device) # update for shapes
     # calculate second order derivatives
     u_zz = grad(u_z, x, create_graph=True, grad_outputs=grads)[0][:, 0]  # (z, y, x, t)
     u_yy = grad(u_y, x, create_graph=True, grad_outputs=grads)[0][:, 1]
     u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 2]
     u_tt = grad(u_t, x, create_graph=True, grad_outputs=grads)[0][:, 3]
-
+    print(u_zz.shape,u_yy.shape,u_xx.shape,u_tt.shape)
     f_u = u_tt - (u_zz + u_yy + u_xx)
     return f_u
 

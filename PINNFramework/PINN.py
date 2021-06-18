@@ -478,7 +478,7 @@ class PINN(nn.Module):
                         if not (epoch + 1) % writing_cylcle and checkpoint_path is not None:
                             self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
         if not self.rank and callbacks is not None and logger is not None:
-            callbacks(epoch=0)
+            callbacks(epoch=1)
         print("===== Main training =====")
         for epoch in range(start_epoch, epochs):
             np.random.seed(42 + epoch)
