@@ -8,7 +8,8 @@ class ICDataset(Dataset):
     
     def __init__(self, path, iteration, n0, batch_size, max_t, normalize_labels=False):
         """
-        Constructor of the initial condition dataset. This function loads the data with open_pmd creates the input tensos as well the labels
+        Constructor of the initial condition dataset. This function loads the data with open_pmd creates the input
+        tensos as well the labels
         
         Args:
         path: Path to the open pmd file, where the inital state is stored
@@ -40,7 +41,7 @@ class ICDataset(Dataset):
         y_length = field_shape[1]
         x_length = field_shape[2]
 
-        E_x = E_x.reshape(-1,1)
+        E_x = E_x.reshape(-1, 1)
 
         # creating the mesh in PIConGPU coordinates
         z = np.arange(0, z_length) * self.cell_depth

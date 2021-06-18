@@ -464,6 +464,7 @@ class PINN(nn.Module):
 
             optim.load_state_dict(checkpoint['optimizer'])
             minimum_pinn_loss = checkpoint["minimum_pinn_loss"]
+            print("Checkpoint Loaded")
 
         print("===== Pretraining =====")
         if pretraining:
@@ -474,9 +475,10 @@ class PINN(nn.Module):
                     ic_loss.backward()
                     optim.step()
                     if not self.rank:
-                        print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch, epochs))
                         if not (epoch + 1) % writing_cylcle and checkpoint_path is not None:
                             self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
+                if not self.rank:
+                    print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch, epochs))
         if not self.rank and callbacks is not None and logger is not None:
             callbacks(epoch=1)
         print("===== Main training =====")
@@ -493,7 +495,7 @@ class PINN(nn.Module):
                 pinn_loss_sum += pinn_loss
                 batch_counter += 1
             if not self.rank:
-                print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch, epochs))
+                print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch, epochs), flush=True)
                 if logger is not None and not epoch % writing_cylcle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
                     logger.log_scalar(scalar=sum(self.loss_log.values()), name=" Non-Weighted PINN Loss", epoch=epoch)

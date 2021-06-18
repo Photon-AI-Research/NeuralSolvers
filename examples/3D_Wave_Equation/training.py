@@ -115,7 +115,6 @@ def wave_eq(x, u):
     u_yy = grad(u_y, x, create_graph=True, grad_outputs=grads)[0][:, 1]
     u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 2]
     u_tt = grad(u_t, x, create_graph=True, grad_outputs=grads)[0][:, 3]
-    print(u_zz.shape,u_yy.shape,u_xx.shape,u_tt.shape)
     f_u = u_tt - (u_zz + u_yy + u_xx)
     return f_u
 
@@ -207,7 +206,7 @@ if __name__ == "__main__":
                    dataset_mode='max'
                    )
     if pinn.rank == 0:
-        logger = pf.WandbLogger(project='wave_equation_pinn',args=args, entity='aipp')
+        logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp')
         wandb.watch(model, log='all')
         # visualization callbacks
         cb_2000 = VisualisationCallback(model, logger, 2000)
@@ -235,5 +234,6 @@ if __name__ == "__main__":
              logger=logger,
              checkpoint_path=checkpoint_path,
              restart=True,
-             callbacks=cb_list
+             callbacks=cb_list,
+             pinn_path="best_model" + args.name + '.pt'
              )
