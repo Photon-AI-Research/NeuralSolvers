@@ -332,6 +332,7 @@ class PINN(nn.Module):
             epochs_pt=100,
             lbfgs_finetuning=True,
             writing_cylcle=30,
+            writing_cycle_pt=10,
             save_model=True,
             pinn_path='best_model_pinn.pt',
             hpm_path='best_model_hpm.pt',
@@ -475,10 +476,10 @@ class PINN(nn.Module):
                     ic_loss.backward()
                     optim.step()
                     if not self.rank:
-                        if not (epoch + 1) % writing_cylcle and checkpoint_path is not None:
+                        if not (epoch + 1) % writing_cycle_pt and checkpoint_path is not None:
                             self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
                 if not self.rank:
-                    print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch, epochs))
+                    print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch, epochs_pt))
         if not self.rank and callbacks is not None and logger is not None:
             callbacks(epoch=1)
         print("===== Main training =====")
