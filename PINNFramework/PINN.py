@@ -482,7 +482,8 @@ class PINN(nn.Module):
                     print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch+1, epochs_pt))
         print("===== Main training =====")
         for epoch in range(start_epoch, epochs):
-            np.random.seed(42 + epoch)
+            # for parallel training the rank should also define the seed
+            np.random.seed(42 + epoch + self.rank)
             batch_counter = 0.
             pinn_loss_sum = 0.
             for idx, training_data in enumerate(data_loader):
