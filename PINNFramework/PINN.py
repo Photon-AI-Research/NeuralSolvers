@@ -498,7 +498,8 @@ class PINN(nn.Module):
                 print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch, epochs), flush=True)
                 if logger is not None and not epoch % writing_cylcle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
-                    logger.log_scalar(scalar=sum(self.loss_log.values()), name=" Non-Weighted PINN Loss", epoch=epoch)
+                    logger.log_scalar(scalar=sum(self.loss_log.values())/batch_counter,
+                                      name=" Non-Weighted PINN Loss", epoch=epoch)
                     # Log values of the loss terms
                     for key, value in self.loss_log.items():
                         logger.log_scalar(scalar=value / batch_counter, name=key, epoch=epoch)

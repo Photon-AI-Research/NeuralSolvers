@@ -7,7 +7,7 @@ from torch import randint
 
 
 class BoundaryDataset(Dataset):
-    def __init__(self, lb, ub, nb, batch_size, period=1, direction=1):
+    def __init__(self, lb, ub, nb, batch_size, direction=1):
         """
         Constructor of the PDE Dataset
 

@@ -143,7 +143,8 @@ if __name__ == "__main__":
     parser.add_argument("--shuffle", dest="shuffle", type=int, default=0)
     parser.add_argument("--annealing",dest="annealing",type=int, default=0)
     parser.add_argument("--k", dest="k", type=int, default=1)
-    parser.add_argument("--max_t",dest="max_t", type=int, default=3000)
+    parser.add_argument("--boundary", dest="boundary",default=0)
+    parser.add_argument("--max_t", dest="max_t", type=int, default=3000)
     args = parser.parse_args()
     ic_dataset = ICDataset(path=args.path,
                            iteration=args.iteration,
@@ -156,8 +157,16 @@ if __name__ == "__main__":
     pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, args.nf, args.batch_size_nf, iterative_generation=True)
     print("pde",len(pde_dataset))
     pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
-    boundary_dataset = BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, period=1)
-    boundary_condition = pf.PeriodicBC(boundary_dataset, 0, "Periodic Boundary Condition")
+
+    boundary_x = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 2), 0, "Boundary x")
+    boundary_y = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 1), 0, "Boundary y")
+    boundary_z = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 0), 0, "Boundary z")
+
+    if args.boundary:
+        boundary_conditions = []
+    else:
+        boundary_conditions = [boundary_x, boundary_y, boundary_z]
+
     if args.activation == 'tanh':
         activation = torch.tanh
     elif args.activation == 'sin':
@@ -181,7 +190,7 @@ if __name__ == "__main__":
         model.cuda()
 
     if args.model == "finger":
-        model = pf.models.FingerNet(numFeatures=300,lb=ic_dataset.lb, ub=ic_dataset.ub, activation=torch.sin)
+        model = pf.models.FingerNet(numFeatures=300, lb=ic_dataset.lb, ub=ic_dataset.ub, activation=torch.sin)
         model.cuda()
 
     if args.model == "snake":
@@ -200,7 +209,7 @@ if __name__ == "__main__":
                    output_dimension=1,
                    pde_loss=pde_condition,
                    initial_condition=initial_condition,
-                   boundary_condition=[],
+                   boundary_condition=boundary_conditions,
                    use_gpu=True,
                    use_horovod=True,
                    dataset_mode='max'
