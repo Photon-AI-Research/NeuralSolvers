@@ -181,7 +181,7 @@ if __name__ == "__main__":
         model.cuda()
 
     if args.model == "finger":
-        model = pf.models.FingerNet(lb=ic_dataset.lb, ub=ic_dataset.ub, activation=torch.sin)
+        model = pf.models.FingerNet(numFeatures=300,lb=ic_dataset.lb, ub=ic_dataset.ub, activation=torch.sin)
         model.cuda()
 
     if args.model == "snake":
@@ -229,11 +229,11 @@ if __name__ == "__main__":
              pretraining=True,
              epochs_pt=30,
              lbfgs_finetuning=False,
-             writing_cylcle=100,
+             writing_cylcle=5,
              activate_annealing=args.annealing,
              logger=logger,
              checkpoint_path=checkpoint_path,
              restart=True,
              callbacks=cb_list,
-             pinn_path="best_model" + args.name + '.pt'
+             pinn_path="best_model_" + args.name + '.pt'
              )
