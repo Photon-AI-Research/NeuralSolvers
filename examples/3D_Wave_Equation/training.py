@@ -145,6 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("--k", dest="k", type=int, default=1)
     parser.add_argument("--boundary", dest="boundary",default=0)
     parser.add_argument("--max_t", dest="max_t", type=int, default=3000)
+    parser.add_argument("--restart", dest="restart", default=1)
     args = parser.parse_args()
     ic_dataset = ICDataset(path=args.path,
                            iteration=args.iteration,
@@ -242,7 +243,7 @@ if __name__ == "__main__":
              activate_annealing=args.annealing,
              logger=logger,
              checkpoint_path=checkpoint_path,
-             restart=True,
+             restart=args.restart,
              callbacks=cb_list,
              pinn_path="best_model_" + args.name + '.pt'
              )
