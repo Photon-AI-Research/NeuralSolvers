@@ -27,7 +27,7 @@ def visualize_gt_diagnostics(dataset, time_step):
 
     fig2 = plt.figure()
     slc = e_field[:, 800, :]
-    plt.imshow(slc, cmap='jet', aspect='auto',vmin=1,vmax=1)
+    plt.imshow(slc, cmap='jet', aspect='auto')
     plt.colorbar()
     plt.xlabel("x")
     plt.ylabel("z")
@@ -80,7 +80,7 @@ class VisualisationCallback(pf.callbacks.Callback):
 
             fig2 = plt.figure()
             slc = pred[:, 800, :]
-            plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
+            plt.imshow(slc, cmap='jet', aspect='auto')
             plt.colorbar()
             plt.xlabel("x")
             plt.ylabel("z")
@@ -191,7 +191,14 @@ if __name__ == "__main__":
         model.cuda()
 
     if args.model == "finger":
-        model = pf.models.FingerNet(numFeatures=300,numLayers=args.num_hidden, lb=ic_dataset.lb, ub=ic_dataset.ub, activation=torch.sin)
+        model = pf.models.FingerNet(numFeatures=300,
+                                    numLayers=args.num_hidden,
+                                    lb=ic_dataset.lb,
+                                    ub=ic_dataset.ub,
+                                    activation=torch.sin,
+                                    normalize=True,
+                                    scaling=ic_dataset.e_field_max
+                                    )
         model.cuda()
 
     if args.model == "snake":

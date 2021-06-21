@@ -60,9 +60,9 @@ class ICDataset(Dataset):
         self.input_x = np.concatenate([z, y, x, t], axis=1)
         self.ub = [np.max(z), np.max(y), np.max(x), max_t]
         self.e_field = E_x
+        self.e_field_max = np.max(self.e_field)
         if normalize_labels:
-            e_field_max = np.max(self.e_field)
-            self.e_field = self.e_field / e_field_max
+            self.e_field = self.e_field / self.e_field_max
 
         rs = np.random.RandomState(seed=0) # create a random state for use the choice function
         rand_idx = rs.choice(self.input_x.shape[0], self.n0, replace=False)

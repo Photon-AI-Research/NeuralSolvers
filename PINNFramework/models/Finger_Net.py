@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 class FingerNet(nn.Module):
-    def __init__(self, lb, ub,numFeatures = 500, numLayers = 8, activation = torch.relu, normalize=True):
+    def __init__(self, lb, ub, numFeatures = 500, numLayers = 8, activation = torch.relu, normalize=True, scaling=1.):
         torch.manual_seed(1234)
         super(FingerNet, self).__init__()
 
@@ -13,6 +13,7 @@ class FingerNet(nn.Module):
         self.ub = torch.tensor(ub).float()
         self.activation = activation
         self.normalize = normalize
+        self.scaling = scaling
         self.init_layers()
 
 
@@ -50,7 +51,7 @@ class FingerNet(nn.Module):
                 nn.init.xavier_uniform_(m.weight)
                 #nn.init.constant_(m.bias, 0)
         
-        self.lin_layers.append(nn.Linear(4 * self.numFeatures,self.numFeatures))
+        self.lin_layers.append(nn.Linear(4 * self.numFeatures, self.numFeatures))
         for i in range(self.numLayers):
             inFeatures = self.numFeatures
             self.lin_layers.append(nn.Linear(inFeatures,self.numFeatures))
@@ -95,8 +96,8 @@ class FingerNet(nn.Module):
             x = self.lin_layers[i](x)
             x = self.activation(x)
         x = self.lin_layers[-1](x)
-   
-        return x
+
+        return self.scaling * x
 
     def cuda(self):
         super(FingerNet, self).cuda()
