@@ -191,7 +191,14 @@ if __name__ == "__main__":
         model.cuda()
 
     if args.model == "finger":
-        model = pf.models.FingerNet(numFeatures=300, lb=ic_dataset.lb, ub=ic_dataset.ub, activation=torch.sin)
+        model = pf.models.FingerNet(numFeatures=300,
+                                    numLayers=args.num_hidden,
+                                    lb=ic_dataset.lb,
+                                    ub=ic_dataset.ub,
+                                    activation=torch.sin,
+                                    normalize=True,
+                                    scaling=ic_dataset.e_field_max
+                                    )
         model.cuda()
 
     if args.model == "snake":
