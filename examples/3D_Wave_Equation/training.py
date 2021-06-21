@@ -20,21 +20,21 @@ def visualize_gt_diagnostics(dataset, time_step):
 
     fig1 = plt.figure()
     slc = e_field[:, :, 120]
-    plt.imshow(slc, cmap='jet', aspect='auto')
+    plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
     plt.colorbar()
     plt.xlabel("y")
     plt.ylabel("z")
 
     fig2 = plt.figure()
     slc = e_field[:, 800, :]
-    plt.imshow(slc, cmap='jet', aspect='auto')
+    plt.imshow(slc, cmap='jet', aspect='auto',vmin=1,vmax=1)
     plt.colorbar()
     plt.xlabel("x")
     plt.ylabel("z")
 
     fig3 = plt.figure()
     slc = e_field[120, :, :]
-    plt.imshow(slc, cmap='jet', aspect='auto')
+    plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
     plt.colorbar()
     plt.xlabel("y")
     plt.ylabel("x")
@@ -73,25 +73,25 @@ class VisualisationCallback(pf.callbacks.Callback):
 
             fig1 = plt.figure()
             slc = pred[:, :, 120]
-            plt.imshow(slc, cmap='jet', aspect='auto')
+            plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
             plt.colorbar()
             plt.xlabel("y")
             plt.ylabel("z")
 
             fig2 = plt.figure()
             slc = pred[:, 800, :]
-            plt.imshow(slc, cmap='jet', aspect='auto')
+            plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
             plt.colorbar()
             plt.xlabel("x")
             plt.ylabel("z")
 
             fig3 = plt.figure()
             slc = pred[120, :, :]
-            plt.imshow(slc, cmap='jet', aspect='auto')
+            plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
             plt.colorbar()
             plt.xlabel("y")
             plt.ylabel("x")
-            
+            del pred # clear memory
             logger.log_image(fig1, "YZ Time: {}".format(self.time_step), epoch)
             logger.log_image(fig2, "XZ Time: {}".format(self.time_step), epoch)
             logger.log_image(fig3, "YX Time: {}".format(self.time_step), epoch)
