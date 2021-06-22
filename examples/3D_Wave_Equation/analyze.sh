@@ -17,7 +17,7 @@ module load PyTorch/1.6.0-fosscuda-2019b-Python-3.7.4
 module load matplotlib/3.1.1-fosscuda-2019b-Python-3.7.4
 module load h5py/2.10.0-fosscuda-2019b-Python-3.7.4
 source ~/neural_solvers/bin/activate
-cd /scratch/ws/1/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation
+cd /beegfs/global0/ws/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation
 
-python analyze.py --path /beegfs/global0/ws/s7520458-pinn_wave/laser_only/simOutput/openPMD/simData_%T.bp\
+python analyze_run.py --path /beegfs/global0/ws/s7520458-pinn_wave/laser_only/simOutput/openPMD/simData_%T.bp\
                   --name 8_wave_scale
