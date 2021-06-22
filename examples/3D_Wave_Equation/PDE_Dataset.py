@@ -45,7 +45,7 @@ class PDEDataset(Dataset):
         z = Z.reshape(-1, 1)
         x = X.reshape(-1, 1)
         y = Y.reshape(-1, 1)
-        t = t.reshape(-1, 1)
+        t = T.reshape(-1, 1)
         self.samples = np.concatenate([z, y, x, t], axis=1)
         rand_idx = np.random.choice(self.samples.shape[0], self.nf, replace=False)
         self.xf = self.samples[rand_idx, :]
