@@ -45,7 +45,7 @@ def analyze(model, name, time, dataset, eval_bs=1048576):
 
         fig1.savefig("zy_{}_{}.png".format(name, time))
         fig2.savefig("zx_{}_{}.png".format(name, time))
-        fig2.savefig("yx_{}_{}.png".format(name, time))
+        fig3.savefig("yx_{}_{}.png".format(name, time))
 
 
 if __name__ == "__main___":
