@@ -20,7 +20,7 @@ def visualize_gt_diagnostics(dataset, time_step):
 
     fig1 = plt.figure()
     slc = e_field[:, :, 120]
-    plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
+    plt.imshow(slc, cmap='jet', aspect='auto')
     plt.colorbar()
     plt.xlabel("y")
     plt.ylabel("z")
@@ -34,7 +34,7 @@ def visualize_gt_diagnostics(dataset, time_step):
 
     fig3 = plt.figure()
     slc = e_field[120, :, :]
-    plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
+    plt.imshow(slc, cmap='jet', aspect='auto')
     plt.colorbar()
     plt.xlabel("y")
     plt.ylabel("x")
@@ -73,7 +73,7 @@ class VisualisationCallback(pf.callbacks.Callback):
 
             fig1 = plt.figure()
             slc = pred[:, :, 120]
-            plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
+            plt.imshow(slc, cmap='jet', aspect='auto')
             plt.colorbar()
             plt.xlabel("y")
             plt.ylabel("z")
@@ -87,7 +87,7 @@ class VisualisationCallback(pf.callbacks.Callback):
 
             fig3 = plt.figure()
             slc = pred[120, :, :]
-            plt.imshow(slc, cmap='jet', aspect='auto',vmin=-1,vmax=1)
+            plt.imshow(slc, cmap='jet', aspect='auto')
             plt.colorbar()
             plt.xlabel("y")
             plt.ylabel("x")
@@ -228,7 +228,7 @@ if __name__ == "__main__":
         # visualization callbacks
         cb_2000 = VisualisationCallback(model, logger, 2000)
         cb_2100 = VisualisationCallback(model, logger, 2100)
-        cb_list = pf.callbacks.CallbackList([cb_2000, cb_2100])
+        cb_list = None
 
     else:
         logger = None

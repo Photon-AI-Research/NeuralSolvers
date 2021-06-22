@@ -318,6 +318,7 @@ class PINN(nn.Module):
 
         if self.is_hpm:
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
+        checkpoint_path = checkpoint_path + '_' + str(epoch) 
         torch.save(checkpoint, checkpoint_path)
 
 
@@ -518,7 +519,8 @@ class PINN(nn.Module):
                             logger.log_scalar(scalar=self.boundary_condition.weight,
                                               name=self.boundary_condition.name + "_weight",
                                               epoch=epoch)
-                    callbacks(epoch=epoch)
+                    if callbacks is not None:
+                        callbacks(epoch=epoch)
                 # saving routine
                 if (pinn_loss_sum / batch_counter < minimum_pinn_loss) and save_model:
                     self.save_model(pinn_path, hpm_path)
