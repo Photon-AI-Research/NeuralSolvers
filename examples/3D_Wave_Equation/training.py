@@ -155,7 +155,7 @@ if __name__ == "__main__":
                            normalize_labels=args.normalize_labels)
     print("ic",len(ic_dataset))
     initial_condition = pf.InitialCondition(ic_dataset, "Initial Condition")
-    pde_dataset = PDEDataset(ic_dataset.lb, ic_dataset.ub, args.nf, args.batch_size_nf, iterative_generation=True)
+    pde_dataset = PDEDataset(args.path, args.nf, args.batch_size_nf, args.iteration, args.max_t)
     print("pde",len(pde_dataset))
     pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
 
