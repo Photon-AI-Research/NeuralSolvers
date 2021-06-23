@@ -43,6 +43,8 @@ def analyze(model, name, time, dataset, eval_bs=1048576):
         plt.ylabel("x")
         np.save("pred_"+name+"_"+str(time),pred)
         np.save("gt_"+ str(time),dataset.e_field)
+        np.save("training_x_" + str(time), dataset.input_x)
+        np.save("training_y_",+ str(time), dataset.e_field)
         del pred  # clear memory
 
         fig1.savefig("zy_{}_{}.png".format(name, time))
@@ -62,7 +64,7 @@ if __name__ == "__main__":
     print("scaling:", dataset_2000.e_field_max)
     print("lb:",dataset_2000.lb)
     print("ub:",dataset_2000.ub)
-    dataset_2100 = ICDataset(args.path, 2100, 0, 0, 2100, False)
+    dataset_2100 = ICDataset(args.path, 2100, 10000, 0, 2100, False)
     model = pf.models.FingerNet(numFeatures=300,
                                 numLayers=8,
                                 lb=dataset_2000.lb,
