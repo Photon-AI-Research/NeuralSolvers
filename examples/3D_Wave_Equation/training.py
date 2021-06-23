@@ -120,7 +120,6 @@ def wave_eq(x, u):
 
 if __name__ == "__main__":
     parser = ArgumentParser()
-    parser = ArgumentParser()
     parser.add_argument("--name", dest="name", type=str)
     parser.add_argument("--path", dest="path", type=str)
     parser.add_argument("--iteration", dest="iteration", type=int, default=2000)
@@ -247,7 +246,7 @@ if __name__ == "__main__":
              pretraining=True,
              epochs_pt=30,
              lbfgs_finetuning=False,
-             writing_cylcle=5,
+             writing_cylcle=10,
              activate_annealing=args.annealing,
              logger=logger,
              checkpoint_path=checkpoint_path,
