@@ -36,10 +36,10 @@ class PDEDataset(Dataset):
         y_length = field_shape[1]
         x_length = field_shape[2]
 
-        z = np.arange(0, z_length, 2) * self.cell_depth  # reduce sampling in z-direction
+        z = np.arange(0, z_length, 8) * self.cell_depth  # reduce sampling in z-direction
         y = np.arange(0, y_length) * self.cell_height
-        x = np.arange(0, x_length, 2) * self.cell_width  # reduce sampling in x-direction
-        t = np.arange(iteration, tmax)
+        x = np.arange(0, x_length, 8) * self.cell_width  # reduce sampling in x-direction
+        t = np.arange(iteration, tmax+1)
 
         Z, Y, X, T = np.meshgrid(z, y, x, t, indexing='ij')
         z = Z.reshape(-1, 1)

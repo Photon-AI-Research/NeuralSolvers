@@ -163,8 +163,9 @@ if __name__ == "__main__":
     boundary_y = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 1), 0, "Boundary y")
     boundary_z = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 0), 0, "Boundary z")
 
-    if args.boundary:
+    if not args.boundary:
         boundary_conditions = []
+        print("created boundary")
     else:
         boundary_conditions = [boundary_x, boundary_y, boundary_z]
 

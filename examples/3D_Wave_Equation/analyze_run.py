@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from argparse import ArgumentParser
 import sys
-import matplotlib as plt
+import matplotlib.pyplot as plt
 
 sys.path.append('../..')  # PINNFramework etc.
 import PINNFramework as pf
@@ -41,6 +41,8 @@ def analyze(model, name, time, dataset, eval_bs=1048576):
         plt.colorbar()
         plt.xlabel("y")
         plt.ylabel("x")
+        np.save("pred_"+name+"_"+str(time),pred)
+        np.save("gt_"+ str(time),dataset.e_field)
         del pred  # clear memory
 
         fig1.savefig("zy_{}_{}.png".format(name, time))
@@ -48,11 +50,11 @@ def analyze(model, name, time, dataset, eval_bs=1048576):
         fig3.savefig("yx_{}_{}.png".format(name, time))
 
 
-if __name__ == "__main___":
+if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--name", dest="name", type=str)
-    parser.add_argument("--path", dest="name", type=str)
-    args = ArgumentParser.parse_args()
+    parser.add_argument("--path", dest="path", type=str)
+    args = parser.parse_args()
     dataset_2000 = ICDataset(args.path, 2000, 0, 0, 2100, False)
     dataset_2100 = ICDataset(args.path, 2100, 0, 0, 2100, False)
     model = pf.models.FingerNet(numFeatures=300,
@@ -63,11 +65,12 @@ if __name__ == "__main___":
                                 normalize=True,
                                 scaling=dataset_2000.e_field_max
                                 )
+    model.cuda()
     pinn_path = "best_model_" + args.name + '.pt'
 
     model.load_state_dict(torch.load(pinn_path))
     model.eval()
-
+    print("eval",flush=True)
     analyze(model, args.name, 2000, dataset_2000)
     analyze(model, args.name, 2100, dataset_2100)
 
