@@ -56,6 +56,12 @@ if __name__ == "__main__":
     parser.add_argument("--path", dest="path", type=str)
     args = parser.parse_args()
     dataset_2000 = ICDataset(args.path, 2000, 0, 0, 2100, False)
+    print("cell_depth:", dataset_2000.cell_depth)
+    print("cell_height:", dataset_2000.cell_height)
+    print("cell_width:", dataset_2000.cell_width)
+    print("scaling:", dataset_2000.e_field_max)
+    print("lb:",dataset_2000.lb)
+    print("ub:",dataset_2000.ub)
     dataset_2100 = ICDataset(args.path, 2100, 0, 0, 2100, False)
     model = pf.models.FingerNet(numFeatures=300,
                                 numLayers=8,
