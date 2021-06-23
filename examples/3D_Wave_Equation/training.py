@@ -142,7 +142,7 @@ if __name__ == "__main__":
     parser.add_argument("--shuffle", dest="shuffle", type=int, default=0)
     parser.add_argument("--annealing",dest="annealing",type=int, default=0)
     parser.add_argument("--k", dest="k", type=int, default=1)
-    parser.add_argument("--boundary", dest="boundary",default=0)
+    parser.add_argument("--boundary", dest="boundary", default=0)
     parser.add_argument("--max_t", dest="max_t", type=int, default=3000)
     parser.add_argument("--restart", dest="restart", default=1)
     args = parser.parse_args()
@@ -162,11 +162,11 @@ if __name__ == "__main__":
     boundary_y = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 1), 0, "Boundary y")
     boundary_z = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 0), 0, "Boundary z")
 
-    if not args.boundary:
+    if args.boundary == 0:
         boundary_conditions = []
-        print("created boundary")
+        print("created no boundary")
     else:
-        boundary_conditions = [boundary_x, boundary_y, boundary_z]
+        boundary_conditions = []
 
     if args.activation == 'tanh':
         activation = torch.tanh
@@ -243,7 +243,7 @@ if __name__ == "__main__":
     pinn.fit(epochs=args.num_epochs,
              optimizer='Adam',
              learning_rate=args.learning_rate,
-             pretraining=True,
+             pretraining=False,
              epochs_pt=30,
              lbfgs_finetuning=False,
              writing_cylcle=10,
