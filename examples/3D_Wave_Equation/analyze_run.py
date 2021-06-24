@@ -3,6 +3,7 @@ import numpy as np
 from argparse import ArgumentParser
 import sys
 import matplotlib.pyplot as plt
+from torch.autograd import grad
 
 sys.path.append('../..')  # PINNFramework etc.
 import PINNFramework as pf
@@ -44,12 +45,33 @@ def analyze(model, name, time, dataset, eval_bs=1048576):
         np.save("pred_"+name+"_"+str(time),pred)
         np.save("gt_"+ str(time),dataset.e_field)
         np.save("training_x_" + str(time), dataset.input_x)
-        np.save("training_y_",+ str(time), dataset.e_field)
+        np.save("training_y_" + str(time), dataset.e_field)
         del pred  # clear memory
 
         fig1.savefig("zy_{}_{}.png".format(name, time))
         fig2.savefig("zx_{}_{}.png".format(name, time))
         fig3.savefig("yx_{}_{}.png".format(name, time))
+
+def wave_eq(x, u):
+
+    grads = torch.ones(u.shape, device=u.device)  # move to the same device as prediction
+
+    grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]  # (z, y, x, t)
+
+    u_z = grad_u[:, 0]
+    u_y = grad_u[:, 1]
+    u_x = grad_u[:, 2]
+    u_t = grad_u[:, 3]
+
+    grads = torch.ones(u_z.shape, device=u_z.device) # update for shapes
+
+    # calculate second order derivatives
+    u_zz = grad(u_z, x, create_graph=True, grad_outputs=grads)[0][:, 0]  # (z, y, x, t)
+    u_yy = grad(u_y, x, create_graph=True, grad_outputs=grads)[0][:, 1]
+    u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 2]
+    u_tt = grad(u_t, x, create_graph=True, grad_outputs=grads)[0][:, 3]
+    f_u = u_tt - (u_zz + u_yy + u_xx)
+    return f_u
 
 
 if __name__ == "__main__":
@@ -57,7 +79,7 @@ if __name__ == "__main__":
     parser.add_argument("--name", dest="name", type=str)
     parser.add_argument("--path", dest="path", type=str)
     args = parser.parse_args()
-    dataset_2000 = ICDataset(args.path, 2000, 0, 0, 2100, False)
+    dataset_2000 = ICDataset(args.path, 2000, 5000, 0, 2100, False)
     print("cell_depth:", dataset_2000.cell_depth)
     print("cell_height:", dataset_2000.cell_height)
     print("cell_width:", dataset_2000.cell_width)
@@ -81,6 +103,12 @@ if __name__ == "__main__":
     print("eval",flush=True)
     analyze(model, args.name, 2000, dataset_2000)
     analyze(model, args.name, 2100, dataset_2100)
+    x = dataset_2000.inputs
+    x = x.float().cuda()
+    x.requires_grad = True
+    u = model(x)
+    print(wave_eq(x, u))
+
 
 
 
