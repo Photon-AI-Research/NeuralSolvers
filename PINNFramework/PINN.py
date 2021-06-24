@@ -496,8 +496,6 @@ class PINN(nn.Module):
                 pinn_loss_sum += pinn_loss
                 batch_counter += 1
                 del pinn_loss
-                if self.use_gpu:
-                    torch.cuda.empty_cache()
 
             if not self.rank:
                 print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch, epochs), flush=True)
