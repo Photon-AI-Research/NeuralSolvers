@@ -102,6 +102,12 @@ class VisualisationCallback(pf.callbacks.Callback):
 def wave_eq(x, u):
     grads = torch.ones(u.shape, device=u.device)  # move to the same device as prediction
     # calculate first order derivatives
+
+    inp_x = x[:, 2]
+    inp_y = x[:, 1]
+    inp_z = x[:, 0]
+    inp_t = x[:, 3]
+
     grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]  # (z, y, x, t)
 
     u_z = grad_u[:, 0]
@@ -109,12 +115,21 @@ def wave_eq(x, u):
     u_x = grad_u[:, 2]
     u_t = grad_u[:, 3]
 
+    grads = torch.ones(u_z.shape, device=u_z.device)  # update for shapes
+
+    u_xx = grad(u_x, inp_x, create_graph=True, grad_outputs=grads)[0]
+    u_yy = grad(u_y, inp_y, create_graph=True, grad_outputs=grads)[0]
+    u_zz = grad(u_z, inp_z, create_graph=True, grad_outputs=grads)[0]
+    u_tt = grad(u_t, inp_t, create_graph=True, grad_outputs=grads)[0]
+
+    """"
     grads = torch.ones(u_z.shape, device=u_z.device) # update for shapes
     # calculate second order derivatives
     u_zz = grad(u_z, x, create_graph=True, grad_outputs=grads)[0][:, 0]  # (z, y, x, t)
     u_yy = grad(u_y, x, create_graph=True, grad_outputs=grads)[0][:, 1]
     u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 2]
     u_tt = grad(u_t, x, create_graph=True, grad_outputs=grads)[0][:, 3]
+    """
     f_u = u_tt - (u_zz + u_yy + u_xx)
     return f_u
 
@@ -152,10 +167,10 @@ if __name__ == "__main__":
                            batch_size=args.batch_size_n0,
                            max_t=args.max_t,
                            normalize_labels=args.normalize_labels)
-    print("ic",len(ic_dataset))
+    print("ic", len(ic_dataset))
     initial_condition = pf.InitialCondition(ic_dataset, "Initial Condition")
     pde_dataset = PDEDataset(args.path, args.nf, args.batch_size_nf, args.iteration, args.max_t)
-    print("pde",len(pde_dataset))
+    print("pde", len(pde_dataset))
     pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
 
     boundary_x = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 2), 0, "Boundary x")
@@ -174,10 +189,15 @@ if __name__ == "__main__":
         activation = torch.sin
 
     if args.model == "gpinn":
-        model = pf.models.distMoe(input_size=4, output_size=1,
-                                  num_experts=args.num_experts, hidden_size=args.hidden_size,
-                                  num_hidden=args.num_hidden,
-                                  lb=ic_dataset.lb, ub=ic_dataset.ub, activation=activation, k=args.k)
+        model = pf.models.FingerMoE(4,
+                                    3,
+                                    args.num_experts,
+                                    args.hidden_size,
+                                    args.num_hidden,
+                                    ic_dataset.lb,
+                                    ic_dataset.ub,
+                                    torch.sin)
+        model.cuda()
 
     if args.model == "mlp":
         model = pf.models.MLP(
