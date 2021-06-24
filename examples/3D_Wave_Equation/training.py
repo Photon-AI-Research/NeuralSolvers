@@ -100,38 +100,29 @@ class VisualisationCallback(pf.callbacks.Callback):
 
 
 def wave_eq(x, u):
+
     grads = torch.ones(u.shape, device=u.device)  # move to the same device as prediction
-    # calculate first order derivatives
 
-    inp_x = x[:, 2]
-    inp_y = x[:, 1]
-    inp_z = x[:, 0]
-    inp_t = x[:, 3]
+    grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]  # (z, y, x, t)
 
-    #grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]  # (z, y, x, t)
+    u_z = grad_u[:, 0]
+    u_y = grad_u[:, 1]
+    u_x = grad_u[:, 2]
+    u_t = grad_u[:, 3]
 
-    u_z = grad(u, inp_z, create_graph=True, grad_outputs=grads)[0]
-    u_y = grad(u, inp_y, create_graph=True, grad_outputs=grads)[0]
-    u_x = grad(u, inp_x, create_graph=True, grad_outputs=grads)[0]
-    u_t = grad(u, inp_t, create_graph=True, grad_outputs=grads)[0]
-
-    grads = torch.ones(u_z.shape, device=u_z.device)  # update for shapes
-
-    u_xx = grad(u_x, inp_x, create_graph=True, grad_outputs=grads)[0]
-    u_yy = grad(u_y, inp_y, create_graph=True, grad_outputs=grads)[0]
-    u_zz = grad(u_z, inp_z, create_graph=True, grad_outputs=grads)[0]
-    u_tt = grad(u_t, inp_t, create_graph=True, grad_outputs=grads)[0]
-
-    """"
     grads = torch.ones(u_z.shape, device=u_z.device) # update for shapes
+
     # calculate second order derivatives
     u_zz = grad(u_z, x, create_graph=True, grad_outputs=grads)[0][:, 0]  # (z, y, x, t)
     u_yy = grad(u_y, x, create_graph=True, grad_outputs=grads)[0][:, 1]
     u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 2]
     u_tt = grad(u_t, x, create_graph=True, grad_outputs=grads)[0][:, 3]
-    """
+
     f_u = u_tt - (u_zz + u_yy + u_xx)
-    return f_u
+    relu6 = torch.nn.ReLU6()
+    propagation_error = float(1./6.) * relu6(u_y*u_t)
+
+    return torch.stack(f_u, propagation_error)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
