@@ -151,6 +151,7 @@ if __name__ == "__main__":
     parser.add_argument("--boundary", dest="boundary", default=0)
     parser.add_argument("--max_t", dest="max_t", type=int, default=3000)
     parser.add_argument("--restart", dest="restart", default=1)
+    parser.add_argument("--checkpoint", dest="checkpoint")
     args = parser.parse_args()
     ic_dataset = ICDataset(path=args.path,
                            iteration=args.iteration,
@@ -235,7 +236,7 @@ if __name__ == "__main__":
                    )
     if pinn.rank == 0:
         logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp')
-        wandb.watch(model, log='all')
+        wandb.watch(model)
         # visualization callbacks
         cb_2000 = VisualisationCallback(model, logger, 2000)
         cb_2100 = VisualisationCallback(model, logger, 2100)
@@ -244,7 +245,7 @@ if __name__ == "__main__":
     else:
         logger = None
         cb_list = None
-    checkpoint_path = "checkpoints/" + args.name + "_checkpoint.pt"
+    checkpoint_path = args.checkpoint
     print("callbacks are finished") 
     #write ground truth diagnostics
     #if pinn.rank == 0:
