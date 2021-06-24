@@ -303,7 +303,7 @@ class PINN(nn.Module):
 
         return pinn_loss
 
-    def write_checkpoint(self, name, prefix, epoch, pretraining, minimum_pinn_loss, optimizer):
+    def write_checkpoint(self, checkpoint_path, epoch, pretraining, minimum_pinn_loss, optimizer):
         checkpoint =  {}
         checkpoint["epoch"] = epoch
         checkpoint["pretraining"] = pretraining
@@ -320,7 +320,7 @@ class PINN(nn.Module):
 
         if self.is_hpm:
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
-        checkpoint_path = prefix + str(epoch) + name + '.pt'
+        checkpoint_path = checkpoint_path + '_' + str(epoch)
         torch.save(checkpoint, checkpoint_path)
 
 

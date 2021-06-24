@@ -108,12 +108,12 @@ def wave_eq(x, u):
     inp_z = x[:, 0]
     inp_t = x[:, 3]
 
-    grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]  # (z, y, x, t)
+    #grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]  # (z, y, x, t)
 
-    u_z = grad_u[:, 0]
-    u_y = grad_u[:, 1]
-    u_x = grad_u[:, 2]
-    u_t = grad_u[:, 3]
+    u_z = grad(u, inp_z, create_graph=True, grad_outputs=grads)[0]
+    u_y = grad(u, inp_y, create_graph=True, grad_outputs=grads)[0]
+    u_x = grad(u, inp_x, create_graph=True, grad_outputs=grads)[0]
+    u_t = grad(u, inp_t, create_graph=True, grad_outputs=grads)[0]
 
     grads = torch.ones(u_z.shape, device=u_z.device)  # update for shapes
 
