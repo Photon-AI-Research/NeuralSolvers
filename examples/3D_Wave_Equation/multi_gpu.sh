@@ -1,13 +1,13 @@
 #!/bin/bash -l
 #SBATCH -p ml
 #SBATCH -t 48:00:00
-#SBATCH --nodes=20
-#SBATCH --ntasks=120
+#SBATCH --nodes=30
+#SBATCH --ntasks=180
 #SBATCH --cpus-per-task=29
 #SBATCH --gres=gpu:6
 #SBATCH --mem-per-cpu=1443
-#SBATCH -e error_files/d_residuals_y.txt
-#SBATCH -o output_files/d_residuals_y.txt
+#SBATCH -e error_files/experiment3.txt
+#SBATCH -o outputexperiment33.txt
 #SBATCH --reservation=p_da_aipp_292
 #SBATCH -A p_da_aipp
 
@@ -19,14 +19,14 @@ source ~/neural_solvers/bin/activate
 cd /beegfs/global0/ws/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation
 srun python training.py --path /beegfs/global0/ws/s7520458-pinn_wave/laser_only/simOutput/openPMD/simData_%T.bp\
                         --iteration 2000\
-                        --name dynamic_residuals\
+                        --name experiment3\
                         --batch_size_n0 5000\
                         --batch_size_nb 5000\
-                        --batch_size_nf 10000\
+                        --batch_size_nf 15000\
                         --num_experts 7\
                         --hidden_size 2000\
                         --num_hidden 8\
-                        --num_epochs 50\
+                        --num_epochs 500\
                         --learning_rate 3e-5\
                         --normalize_labels 0\
                         --model finger\

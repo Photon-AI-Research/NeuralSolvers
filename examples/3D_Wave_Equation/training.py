@@ -236,9 +236,9 @@ if __name__ == "__main__":
     checkpoint_path = "checkpoints/" + args.name + "_checkpoint.pt"
     print("callbacks are finished") 
     #write ground truth diagnostics
-    if pinn.rank == 0:
-        visualize_gt_diagnostics(cb_2000.dataset, 2000)
-        visualize_gt_diagnostics(cb_2100.dataset, 2100)
+    #if pinn.rank == 0:
+        #visualize_gt_diagnostics(cb_2000.dataset, 2000)
+        #visualize_gt_diagnostics(cb_2100.dataset, 2100)
     print("start fit")
     pinn.fit(epochs=args.num_epochs,
              optimizer='Adam',
@@ -246,7 +246,7 @@ if __name__ == "__main__":
              pretraining=False,
              epochs_pt=30,
              lbfgs_finetuning=False,
-             writing_cylcle=10,
+             writing_cylcle=5,
              activate_annealing=args.annealing,
              logger=logger,
              checkpoint_path=checkpoint_path,
