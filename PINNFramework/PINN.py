@@ -12,6 +12,7 @@ from .HPMLoss import HPMLoss
 from torch.autograd import grad as grad
 from PINNFramework.callbacks import CallbackList
 
+
 try:
     import horovod.torch as hvd
 except:
@@ -56,6 +57,7 @@ class PINN(nn.Module):
         self.rank = 0  # initialize rank 0 by default in order to make the fit method more flexible
         self.loss_log = {}
         if self.use_horovod:
+
             # Initialize Horovod
             hvd.init()
             # Pin GPU to be used to process local rank (one GPU per process)
@@ -301,7 +303,7 @@ class PINN(nn.Module):
 
         return pinn_loss
 
-    def write_checkpoint(self, checkpoint_path, epoch, pretraining, minimum_pinn_loss, optimizer):
+    def write_checkpoint(self, name, prefix, epoch, pretraining, minimum_pinn_loss, optimizer):
         checkpoint =  {}
         checkpoint["epoch"] = epoch
         checkpoint["pretraining"] = pretraining
@@ -318,7 +320,7 @@ class PINN(nn.Module):
 
         if self.is_hpm:
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
-        checkpoint_path = checkpoint_path + '_' + str(epoch) 
+        checkpoint_path = prefix + str(epoch) + name + '.pt'
         torch.save(checkpoint, checkpoint_path)
 
 
