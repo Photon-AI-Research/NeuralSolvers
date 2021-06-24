@@ -39,4 +39,5 @@ srun python training.py --path /beegfs/global0/ws/s7520458-pinn_wave/laser_only/
                         --nb 50000000\
                         --max_t 2100\
                         --boundary 0\
-                        --restart 1
+                        --restart 0\
+                        --checkpoint experiment4_prop_checkpoint.pt_79
