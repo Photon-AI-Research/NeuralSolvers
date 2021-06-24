@@ -246,12 +246,14 @@ if __name__ == "__main__":
         logger = None
         cb_list = None
     checkpoint_path = args.checkpoint
+    print("Restart", args.restart, flush=True)
     print("callbacks are finished") 
     #write ground truth diagnostics
     #if pinn.rank == 0:
         #visualize_gt_diagnostics(cb_2000.dataset, 2000)
         #visualize_gt_diagnostics(cb_2100.dataset, 2100)
     print("start fit")
+    print(checkpoint_path,flush=True)
     pinn.fit(epochs=args.num_epochs,
              optimizer='Adam',
              learning_rate=args.learning_rate,

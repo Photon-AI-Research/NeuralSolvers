@@ -450,7 +450,7 @@ class PINN(nn.Module):
                     "Checkpoint path {} do not exists. Please change the path to a existing checkpoint"
                     "or change the restart flag to true in order to create a new checkpoint"
                     .format(checkpoint_path))
-        if checkpoint_path is not None and not restart:
+        if checkpoint_path is not None:
             checkpoint = torch.load(checkpoint_path)
             start_epoch = checkpoint["epoch"]
             pretraining = checkpoint["pretraining"]
@@ -468,7 +468,9 @@ class PINN(nn.Module):
 
             optim.load_state_dict(checkpoint['optimizer'])
             minimum_pinn_loss = checkpoint["minimum_pinn_loss"]
-            print("Checkpoint Loaded")
+            print("Checkpoint Loaded", flush=True)
+        else:
+            print("Checkpoint not loaded", flush=True)
 
         print("===== Pretraining =====")
         if pretraining:
