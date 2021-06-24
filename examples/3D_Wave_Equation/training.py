@@ -122,7 +122,7 @@ def wave_eq(x, u):
     relu6 = torch.nn.ReLU6()
     propagation_error = float(1./6.) * relu6(u_y*u_t)
 
-    return torch.stack(f_u, propagation_error)
+    return torch.stack([f_u, propagation_error], 1)
 
 if __name__ == "__main__":
     parser = ArgumentParser()
