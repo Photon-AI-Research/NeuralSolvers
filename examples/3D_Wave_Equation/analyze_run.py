@@ -103,7 +103,10 @@ if __name__ == "__main__":
     print("eval",flush=True)
     analyze(model, args.name, 2000, dataset_2000)
     analyze(model, args.name, 2100, dataset_2100)
-    x = dataset_2000.inputs
+    input_x = dataset_2000.input_x
+    input_x = input_x.reshape(256, 2048, 256)
+    input_x = input_x[128, 500:700, 128]
+    x = torch.Tensor(input_x.reshape(-1, 1))
     x = x.float().cuda()
     x.requires_grad = True
     u = model(x)
