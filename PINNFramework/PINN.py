@@ -493,7 +493,7 @@ class PINN(nn.Module):
                 pinn_loss = self.pinn_loss(training_data, do_annealing)
                 pinn_loss.backward()
                 optim.step()
-                pinn_loss_sum += pinn_loss
+                pinn_loss_sum = pinn_loss_sum + pinn_loss
                 batch_counter += 1
                 del pinn_loss
 
