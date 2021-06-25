@@ -71,7 +71,7 @@ def wave_eq(x, u):
     u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 2]
     u_tt = grad(u_t, x, create_graph=True, grad_outputs=grads)[0][:, 3]
     f_u = u_tt - (u_zz + u_yy + u_xx)
-    return f_u
+    return f_u, u_tt, u_zz, u_yy, u_xx, u_y, u_t
 
 
 if __name__ == "__main__":
@@ -101,16 +101,27 @@ if __name__ == "__main__":
     model.load_state_dict(torch.load(pinn_path))
     model.eval()
     print("eval",flush=True)
-    analyze(model, args.name, 2000, dataset_2000)
-    analyze(model, args.name, 2100, dataset_2100)
+    #analyze(model, args.name, 2000, dataset_2000)
+    #analyze(model, args.name, 2100, dataset_2100)
     input_x = dataset_2000.input_x
-    input_x = input_x.reshape(256, 2048, 256)
-    input_x = input_x[128, 500:700, 128]
-    x = torch.Tensor(input_x.reshape(-1, 1))
-    x = x.float().cuda()
-    x.requires_grad = True
-    u = model(x)
-    print(wave_eq(x, u))
+    input_x = input_x.reshape(256, 2048, 256,4)
+    input_x = input_x[128, 500:700, 128,:]
+    for i in range(2000,2021):
+        x = torch.Tensor(input_x.reshape(-1, 4))
+        x[:, 3] = i
+        x = x.float().cuda()
+        x.requires_grad = True
+        u = model(x)
+        f_u, u_tt, u_zz, u_yy, u_xx, u_y, u_t = wave_eq(x, u)
+        np.save("time_series/prediction{}".format(i), u.detach().cpu().numpy())
+        np.save("time_series/f_u_{}".format(i), f_u.detach().cpu().numpy())
+        np.save("time_series/u_tt_{}".format(i), u_tt.detach().cpu().numpy())
+        np.save("time_series/u_zz_{}".format(i), u_zz.detach().cpu().numpy())
+        np.save("time_series/u_yy_{}".format(i), u_yy.detach().cpu().numpy())
+        np.save("time_series/u_xx_{}".format(i), u_xx.detach().cpu().numpy())
+        np.save("time_series/u_y_{}".format(i), u_y.detach().cpu().numpy())
+        np.save("time_series/u_t_{}".format(i), u_t.detach().cpu().numpy())
+
 
 
 
