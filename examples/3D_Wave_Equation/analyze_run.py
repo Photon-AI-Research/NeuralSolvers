@@ -105,7 +105,7 @@ if __name__ == "__main__":
     #analyze(model, args.name, 2100, dataset_2100)
     input_x = dataset_2000.input_x
     input_x = input_x.reshape(256, 2048, 256,4)
-    input_x = input_x[128, 500:700, 128,:]
+    input_x = input_x[128:133, 500:700, 128:133, :]
     for i in range(2000,2101):
         x = torch.Tensor(input_x.reshape(-1, 4))
         x[:, 3] = i
