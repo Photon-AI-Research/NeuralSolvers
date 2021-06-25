@@ -138,7 +138,7 @@ class MoE(nn.Module):
 
     def __init__(self, input_size, output_size, num_experts,
                  hidden_size, num_hidden, lb, ub, activation=torch.tanh,
-                 non_linear=False, noisy_gating=False, k=1):
+                 non_linear=False, noisy_gating=False, k=1, scaling_factor=1.):
         super(MoE, self).__init__()
         self.noisy_gating = noisy_gating
         self.num_experts = num_experts
@@ -150,6 +150,7 @@ class MoE(nn.Module):
         self.loss = 0
         self.lb = torch.Tensor(lb).float()
         self.ub = torch.Tensor(ub).float()
+        self.scaling_factor = scaling_factor
 
         # instantiate experts
         # normalization of the MLPs is disabled cause the Gating Network performs the normalization
@@ -325,7 +326,7 @@ class MoE(nn.Module):
             if expert_inputs[i] is not None:
                 expert_outputs.append(self.experts[i](expert_inputs[i]))
         y = dispatcher.combine(expert_outputs)
-        return y
+        return self.scaling_factor * y
 
     def cuda(self):
         super(MoE, self).cuda()
