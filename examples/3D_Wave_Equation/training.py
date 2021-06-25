@@ -290,7 +290,7 @@ if __name__ == "__main__":
     print("start fit")
     print(checkpoint_path, flush=True)
     performance_callback = PerformanceCallback(hvd.rank())
-    performance_callback(epoch=0)
+    print("FIT",flush=True)
     pinn.fit(epochs=args.num_epochs,
              optimizer='Adam',
              learning_rate=args.learning_rate,
