@@ -276,8 +276,8 @@ if __name__ == "__main__":
     #logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp', group=args.name)
     #wandb.watch(model)
     # visualization callbacks
-    cb_2000 = VisualisationCallback(model, logger, 2000)
-    cb_2100 = VisualisationCallback(model, logger, 2100)
+    #cb_2000 = VisualisationCallback(model, logger, 2000)
+    #cb_2100 = VisualisationCallback(model, logger, 2100)
     cb_list = None
     checkpoint_path = args.checkpoint
     print("Restart", args.restart, flush=True)
