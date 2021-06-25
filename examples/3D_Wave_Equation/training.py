@@ -4,15 +4,19 @@ from PDE_Dataset import PDEDataset as PDEDataset
 from BC_Dataset import BoundaryDataset as BCDataset
 from argparse import ArgumentParser
 import sys
-
+from multiprocessing import Process, Value
 import numpy as np
 import torch
-
+import horovod.torch as hvd
 sys.path.append('../..')  # PINNFramework etc.
 import PINNFramework as pf
 import wandb
 import matplotlib.pyplot as plt
 from torch.autograd import grad
+import pathlib
+from pynvml import *
+from pynvml.smi import nvidia_smi
+import time
 
 
 def visualize_gt_diagnostics(dataset, time_step):
@@ -97,6 +101,40 @@ class VisualisationCallback(pf.callbacks.Callback):
             logger.log_image(fig3, "YX Time: {}".format(self.time_step), epoch)
             plt.close('all')
 
+
+class PerformanceCallback(pf.callbacks.Callback):
+    def __init__(self, rank):
+        self.lock = Value('i', 1)
+        # start benchmark process
+        print('benchmark')
+        sys.stdout.flush()
+        if rank % 6 == 0:
+            print('start benchmark')
+            sys.stdout.flush()
+            benchmark_process = Process(target=self.__call__(), args=())
+            benchmark_process.start()
+
+    def __call__(self):
+        nvmlInit()
+        vars()[self.rank] = np.array([])
+        timestamps = np.array([])
+        start_time = time.time()
+        deviceIdx = hvd.local_rank()  # GPU id
+        nvsmi = nvidia_smi.getInstance()
+        while self.lock.value != 0:
+            res = nvsmi.DeviceQuery()
+            vars()[hvd.rank()] = np.append(vars()[hvd.rank()], res['gpu'])
+            timestamps = np.append(timestamps, time.time() - start_time)
+        runtime = time.time() - start_time
+        vars()[hvd.rank()][0]["runtime"] = runtime
+        vars()[hvd.rank()][0]["timestamps"] = timestamps.shape
+        vars()[hvd.rank()] = np.append(vars()[hvd.rank()], timestamps)
+        np.save("/beegfs/global0/ws/s7520458-pinn_wave/examples/3D_Wave_Equation/benchmarks/exp_{}_gpu_s2d_util_{}".format(1,
+                                                                                                          hvd.rank()),
+                vars()[hvd.rank()])
+        print("done")
+        sys.stdout.flush()
+        return
 
 
 def wave_eq(x, u):
@@ -250,6 +288,8 @@ if __name__ == "__main__":
         #visualize_gt_diagnostics(cb_2100.dataset, 2100)
     print("start fit")
     print(checkpoint_path, flush=True)
+    performance_callback = PerformanceCallback(hvd.rank())
+    performance_callback(epoch=0)
     pinn.fit(epochs=args.num_epochs,
              optimizer='Adam',
              learning_rate=args.learning_rate,
@@ -264,3 +304,6 @@ if __name__ == "__main__":
              callbacks=cb_list,
              pinn_path="best_model_" + args.name + '.pt'
              )
+    performance_callback.lock.value = 0
+    time.sleep(120)
+
