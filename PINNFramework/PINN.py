@@ -110,6 +110,7 @@ class PINN(nn.Module):
         }
         self.loss_log[initial_condition.name] = float(0.0)  # adding initial condition to the loss_log
         self.loss_log[pde_loss.name] = float(0.0)
+        self.loss_log["model_loss_pinn"] = float(0.0)
 
         if not self.is_hpm:
             if type(boundary_condition) is list:
