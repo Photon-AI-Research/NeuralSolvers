@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=29
 #SBATCH --gres=gpu:6
 #SBATCH --mem-per-cpu=1443
-#SBATCH -e error_files/experiment3.txt
-#SBATCH -o outputexperiment33.txt
+#SBATCH -e error_files/experiment_gpinn.txt
+#SBATCH -o output/experiment_gpinn.txt
 #SBATCH --reservation=p_da_aipp_292
 #SBATCH -A p_da_aipp
 
@@ -19,25 +19,25 @@ source ~/neural_solvers/bin/activate
 cd /beegfs/global0/ws/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation
 srun python training.py --path /beegfs/global0/ws/s7520458-pinn_wave/laser_only/simOutput/openPMD/simData_%T.bp\
                         --iteration 2000\
-                        --name experiment3\
+                        --name experiment_gpinn\
                         --batch_size_n0 5000\
                         --batch_size_nb 5000\
                         --batch_size_nf 15000\
-                        --num_experts 7\
-                        --hidden_size 2000\
+                        --num_experts 10\
+                        --hidden_size 90\
                         --num_hidden 8\
-                        --num_epochs 500\
+                        --num_epochs 80\
                         --learning_rate 3e-5\
                         --normalize_labels 0\
-                        --model finger\
+                        --model gpinn\
                         --frequency 5\
                         --activation sin\
-                        --k 2\
+                        --k 1\
                         --shuffle 0\
                         --n0 100000000\
                         --nf 800000000\
                         --nb 50000000\
                         --max_t 2100\
                         --boundary 0\
-                        --restart 0\
-                        --checkpoint checkpoints/experiment4_prop_checkpoint.pt_79
+                        --restart 1\
+                        --checkpoint checkpoints/experiment_gpinn

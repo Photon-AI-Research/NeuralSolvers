@@ -182,13 +182,14 @@ if __name__ == "__main__":
 
     if args.model == "gpinn":
         model = pf.models.FingerMoE(4,
-                                    3,
+                                    1,
                                     args.num_experts,
                                     args.hidden_size,
                                     args.num_hidden,
                                     ic_dataset.lb,
                                     ic_dataset.ub,
-                                    torch.sin)
+                                    torch.sin,
+                                    scaling_factor=ic_dataset.e_field_max)
         model.cuda()
 
     if args.model == "mlp":
@@ -234,17 +235,12 @@ if __name__ == "__main__":
                    use_horovod=True,
                    dataset_mode='max'
                    )
-    if pinn.rank == 0:
-        logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp')
-        wandb.watch(model)
-        # visualization callbacks
-        cb_2000 = VisualisationCallback(model, logger, 2000)
-        cb_2100 = VisualisationCallback(model, logger, 2100)
-        cb_list = None
-
-    else:
-        logger = None
-        cb_list = None
+    logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp', group=args.name)
+    wandb.watch(model)
+    # visualization callbacks
+    cb_2000 = VisualisationCallback(model, logger, 2000)
+    cb_2100 = VisualisationCallback(model, logger, 2100)
+    cb_list = None
     checkpoint_path = args.checkpoint
     print("Restart", args.restart, flush=True)
     print("callbacks are finished") 
@@ -253,14 +249,14 @@ if __name__ == "__main__":
         #visualize_gt_diagnostics(cb_2000.dataset, 2000)
         #visualize_gt_diagnostics(cb_2100.dataset, 2100)
     print("start fit")
-    print(checkpoint_path,flush=True)
+    print(checkpoint_path, flush=True)
     pinn.fit(epochs=args.num_epochs,
              optimizer='Adam',
              learning_rate=args.learning_rate,
              pretraining=False,
              epochs_pt=30,
              lbfgs_finetuning=False,
-             writing_cylcle=5,
+             writing_cylcle=10,
              activate_annealing=args.annealing,
              logger=logger,
              checkpoint_path=checkpoint_path,
