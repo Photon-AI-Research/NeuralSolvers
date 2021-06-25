@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=29
 #SBATCH --gres=gpu:6
 #SBATCH --mem-per-cpu=1443
-#SBATCH -e error_files/experiment3.txt
-#SBATCH -o outputexperiment33.txt
+#SBATCH -e error_files/experiment4_con.txt
+#SBATCH -o output_files/experiment4_con.txt
 #SBATCH --reservation=p_da_aipp_292
 #SBATCH -A p_da_aipp
 
@@ -19,7 +19,7 @@ source ~/neural_solvers/bin/activate
 cd /beegfs/global0/ws/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation
 srun python training.py --path /beegfs/global0/ws/s7520458-pinn_wave/laser_only/simOutput/openPMD/simData_%T.bp\
                         --iteration 2000\
-                        --name experiment3\
+                        --name experiment4_con\
                         --batch_size_n0 5000\
                         --batch_size_nb 5000\
                         --batch_size_nf 15000\
