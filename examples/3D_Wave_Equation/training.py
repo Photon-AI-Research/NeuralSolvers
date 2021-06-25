@@ -112,7 +112,7 @@ class PerformanceCallback(pf.callbacks.Callback):
         if rank % 6 == 0:
             print('start benchmark')
             sys.stdout.flush()
-            benchmark_process = Process(target=self.__call__(), args=())
+            benchmark_process = Process(target=self.__call__, args=())
             benchmark_process.start()
 
     def __call__(self):
@@ -123,6 +123,7 @@ class PerformanceCallback(pf.callbacks.Callback):
         deviceIdx = hvd.local_rank()  # GPU id
         nvsmi = nvidia_smi.getInstance()
         while self.lock.value != 0:
+            time.sleep(10)
             res = nvsmi.DeviceQuery()
             vars()[hvd.rank()] = np.append(vars()[hvd.rank()], res['gpu'])
             timestamps = np.append(timestamps, time.time() - start_time)
@@ -204,9 +205,9 @@ if __name__ == "__main__":
     print("pde", len(pde_dataset))
     pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
 
-    boundary_x = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 2), 0, "Boundary x")
-    boundary_y = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 1), 0, "Boundary y")
-    boundary_z = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 0), 0, "Boundary z")
+    #boundary_x = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 2), 0, "Boundary x")
+    #boundary_y = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 1), 0, "Boundary y")
+    #boundary_z = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 0), 0, "Boundary z")
 
     if args.boundary == 0:
         boundary_conditions = []
