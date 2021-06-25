@@ -273,8 +273,8 @@ if __name__ == "__main__":
                    use_horovod=True,
                    dataset_mode='max'
                    )
-    logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp', group=args.name)
-    wandb.watch(model)
+    #logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp', group=args.name)
+    #wandb.watch(model)
     # visualization callbacks
     cb_2000 = VisualisationCallback(model, logger, 2000)
     cb_2100 = VisualisationCallback(model, logger, 2100)
@@ -298,7 +298,7 @@ if __name__ == "__main__":
              lbfgs_finetuning=False,
              writing_cylcle=10,
              activate_annealing=args.annealing,
-             logger=logger,
+             logger=None,
              checkpoint_path=checkpoint_path,
              restart=args.restart,
              callbacks=cb_list,
