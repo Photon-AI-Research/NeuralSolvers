@@ -1,6 +1,6 @@
 #!/bin/bash -l
 #SBATCH -p ml
-#SBATCH -t 5:00:00
+#SBATCH -t 3:30:00
 #SBATCH --nodes=30
 #SBATCH --ntasks=180
 #SBATCH --cpus-per-task=29
