@@ -108,6 +108,7 @@ class PerformanceCallback(pf.callbacks.Callback):
         # start benchmark process
         print('benchmark')
         sys.stdout.flush()
+        self.rank = rank
         if rank % 6 == 0:
             print('start benchmark')
             sys.stdout.flush()
