@@ -4,7 +4,7 @@ import wandb
 
 class WandbLogger(LoggerInterface):
 
-    def __init__(self, project, args, entity=None):
+    def __init__(self, project, args, entity=None, group=None):
         """
         Initialize wandb instance and connect to the server
 
@@ -14,7 +14,7 @@ class WandbLogger(LoggerInterface):
             writing_cycle: defines the writing period
             entity: account or group id used for that run
         """
-        wandb.init(project=project, entity=entity)
+        wandb.init(project=project, entity=entity, group=group)
         wandb.config.update(args)  # adds all of the arguments as config variable
 
     def log_scalar(self, scalar, name, epoch):

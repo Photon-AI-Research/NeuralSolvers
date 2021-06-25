@@ -450,7 +450,7 @@ class PINN(nn.Module):
                     "Checkpoint path {} do not exists. Please change the path to a existing checkpoint"
                     "or change the restart flag to true in order to create a new checkpoint"
                     .format(checkpoint_path))
-        if checkpoint_path is not None:
+        if checkpoint_path is not None and restart == 0:
             checkpoint = torch.load(checkpoint_path)
             start_epoch = checkpoint["epoch"]
             pretraining = checkpoint["pretraining"]
