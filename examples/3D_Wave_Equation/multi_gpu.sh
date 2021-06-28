@@ -1,14 +1,13 @@
 #!/bin/bash -l
 #SBATCH -p ml
-#SBATCH -t 00:30:00
-#SBATCH --nodes=20
-#SBATCH --ntasks=120
+#SBATCH -t 20:00:00
+#SBATCH --nodes=15
+#SBATCH --ntasks=90
 #SBATCH --cpus-per-task=29
 #SBATCH --gres=gpu:6
 #SBATCH --mem-per-cpu=1443
-#SBATCH -e error_files/experiment_finger.txt
-#SBATCH -o output_files/experiment_finger.txt
-#SBATCH --reservation=p_da_aipp_292
+#SBATCH -e error_files/experiment_interpolation.txt
+#SBATCH -o output_files/experiment_interpolation.txt
 #SBATCH -A p_da_aipp
 
 echo "RUN ML"
@@ -21,14 +20,14 @@ source ~/neural_solvers/bin/activate
 cd /beegfs/global0/ws/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation
 srun python training.py --path /beegfs/global0/ws/s7520458-pinn_wave/laser_only/simOutput/openPMD/simData_%T.bp\
                         --iteration 2000\
-                        --name experiment_finger\
+                        --name experiment_interpolation\
                         --batch_size_n0 5000\
                         --batch_size_nb 5000\
                         --batch_size_nf 15000\
                         --num_experts 10\
-                        --hidden_size 300\
+                        --hidden_size 90\
                         --num_hidden 8\
-                        --num_epochs 5\
+                        --num_epochs 80\
                         --learning_rate 3e-5\
                         --normalize_labels 0\
                         --model finger\
@@ -36,7 +35,7 @@ srun python training.py --path /beegfs/global0/ws/s7520458-pinn_wave/laser_only/
                         --activation sin\
                         --k 1\
                         --shuffle 0\
-                        --n0 100000000\
+                        --n0 200000000\
                         --nf 800000000\
                         --nb 50000000\
                         --max_t 2100\

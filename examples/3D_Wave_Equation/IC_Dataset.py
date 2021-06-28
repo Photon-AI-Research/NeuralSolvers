@@ -21,6 +21,8 @@ class ICDataset(Dataset):
         ## creating the iteration and save the dataset attributes
         series = io.Series(path, io.Access_Type.read_only)
         it = series.iterations[iteration]
+        it_2100 = series.iterations[2100]
+
         self.n0 = n0
         self.batch_size = batch_size
         
@@ -31,6 +33,8 @@ class ICDataset(Dataset):
         
         #Loading fields 
         E_x = it.meshes["E"]["x"].load_chunk()
+        E_x_2100 = it_2100.meshes["E"]["x"].load_chunk()
+
         #E_y = it.meshes["E"]["y"].load_chunk()
         #E_z = it.meshes["E"]["z"].load_chunk()
         series.flush()
@@ -42,6 +46,7 @@ class ICDataset(Dataset):
         x_length = field_shape[2]
 
         E_x = E_x.reshape(-1, 1)
+        E_x_2100 = E_x_2100.reshape(-1, 1)
 
         # creating the mesh in PIConGPU coordinates
         z = np.arange(0, z_length) * self.cell_depth
@@ -57,14 +62,19 @@ class ICDataset(Dataset):
         y = Y.reshape(-1, 1)
         t = t.reshape(-1, 1)
 
-        self.input_x = np.concatenate([z, y, x, t], axis=1)
+        self.input_2000 = np.concatenate([z, y, x, t], axis=1)
+        self.input_2100 = np.copy(self.input_2000)
+        self.input_2100[:, 3] = max_t
+
+        self.input_x = np.concatenate([self.input_2000, self.input_2100])
+
         self.ub = [np.max(z), np.max(y), np.max(x), max_t]
-        self.e_field = E_x
+        self.e_field = np.concatenate([E_x, E_x_2100])
         self.e_field_max = np.max(self.e_field)
         if normalize_labels:
             self.e_field = self.e_field / self.e_field_max
 
-        rs = np.random.RandomState(seed=0) # create a random state for use the choice function
+        rs = np.random.RandomState(seed=0)  # create a random state for use the choice function
         rand_idx = rs.choice(self.input_x.shape[0], self.n0, replace=False)
     
         self.inputs = self.input_x[rand_idx, :]

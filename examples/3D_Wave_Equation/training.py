@@ -131,7 +131,7 @@ class PerformanceCallback(pf.callbacks.Callback):
         vars()[hvd.rank()][0]["runtime"] = runtime
         vars()[hvd.rank()][0]["timestamps"] = timestamps.shape
         vars()[hvd.rank()] = np.append(vars()[hvd.rank()], timestamps)
-        np.save("/beegfs/global0/ws/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation/benchmarks/exp_{}_gpu_s2d_util_{}".format(2,
+        np.save("/beegfs/global0/ws/s7520458-pinn_wave/Neuralexamples/3D_Wave_Equation/benchmarks/exp_{}_gpu_s2d_util_{}".format(1,
                                                                                                           hvd.rank()),
                 vars()[hvd.rank()])
         print("done")
@@ -159,10 +159,9 @@ def wave_eq(x, u):
     u_tt = grad(u_t, x, create_graph=True, grad_outputs=grads)[0][:, 3]
 
     f_u = u_tt - (u_zz + u_yy + u_xx)
-    relu6 = torch.nn.ReLU6()
-    propagation_error = float(1./6.) * relu6(u_y*u_t)
-
-    return torch.stack([f_u, propagation_error], 1)
+    #relu6 = torch.nn.ReLU6()
+    #propagation_error = float(1./6.) * relu6(u_y*u_t)
+    return f_u
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -186,12 +185,12 @@ if __name__ == "__main__":
     parser.add_argument("--frequency", dest="frequency", type=float, default=30.)
     parser.add_argument("--activation", dest="activation", type=str, default='tanh')
     parser.add_argument("--shuffle", dest="shuffle", type=int, default=0)
-    parser.add_argument("--annealing",dest="annealing",type=int, default=0)
+    parser.add_argument("--annealing", dest="annealing",type=int, default=0)
     parser.add_argument("--k", dest="k", type=int, default=1)
     parser.add_argument("--boundary", dest="boundary", default=0)
     parser.add_argument("--max_t", dest="max_t", type=int, default=3000)
-    parser.add_argument("--restart", dest="restart", default=1)
-    parser.add_argument("--checkpoint", dest="checkpoint")
+    parser.add_argument("--restart", dest="restart", type=int, default=1)
+    parser.add_argument("--checkpoint", dest="checkpoint", type=str)
     args = parser.parse_args()
     ic_dataset = ICDataset(path=args.path,
                            iteration=args.iteration,
@@ -229,7 +228,7 @@ if __name__ == "__main__":
                                     ic_dataset.lb,
                                     ic_dataset.ub,
                                     torch.sin,
-                                    scaling_factor=ic_dataset.e_field_max)
+                                    scaling_factor=1.)
         model.cuda()
 
     if args.model == "mlp":
@@ -275,23 +274,23 @@ if __name__ == "__main__":
                    use_horovod=True,
                    dataset_mode='max'
                    )
-    #logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp', group=args.name)
-    #wandb.watch(model)
+    if pinn.rank == 0:
+        logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp', group=args.name)
+        wandb.watch(model)
+    else:
+        logger = None
+
     # visualization callbacks
     #cb_2000 = VisualisationCallback(model, logger, 2000)
     #cb_2100 = VisualisationCallback(model, logger, 2100)
     cb_list = None
     checkpoint_path = args.checkpoint
-    print("Restart", args.restart, flush=True)
-    print("callbacks are finished") 
     #write ground truth diagnostics
     #if pinn.rank == 0:
         #visualize_gt_diagnostics(cb_2000.dataset, 2000)
         #visualize_gt_diagnostics(cb_2100.dataset, 2100)
-    print("start fit")
-    print(checkpoint_path, flush=True)
-    performance_callback = PerformanceCallback(hvd.rank())
-    print("FIT",flush=True)
+
+
     pinn.fit(epochs=args.num_epochs,
              optimizer='Adam',
              learning_rate=args.learning_rate,
@@ -306,6 +305,6 @@ if __name__ == "__main__":
              callbacks=cb_list,
              pinn_path="best_model_" + args.name + '.pt'
              )
-    performance_callback.lock.value = 0
-    time.sleep(120)
+    #performance_callback.lock.value = 0
+    #time.sleep(120)
 
