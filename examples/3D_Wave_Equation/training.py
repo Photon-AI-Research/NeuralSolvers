@@ -131,7 +131,7 @@ class PerformanceCallback(pf.callbacks.Callback):
         vars()[hvd.rank()][0]["runtime"] = runtime
         vars()[hvd.rank()][0]["timestamps"] = timestamps.shape
         vars()[hvd.rank()] = np.append(vars()[hvd.rank()], timestamps)
-        np.save("/beegfs/global0/ws/s7520458-pinn_wave/examples/3D_Wave_Equation/benchmarks/exp_{}_gpu_s2d_util_{}".format(1,
+        np.save("/beegfs/global0/ws/s7520458-pinn_wave/NeuralSolvers/examples/3D_Wave_Equation/benchmarks/exp_{}_gpu_s2d_util_{}".format(2,
                                                                                                           hvd.rank()),
                 vars()[hvd.rank()])
         print("done")
