@@ -243,7 +243,7 @@ if __name__ == "__main__":
         model.cuda()
 
     if args.model == "finger":
-        model = pf.models.FingerNet(numFeatures=300,
+        model = pf.models.FingerNet(numFeatures=args.hidden_size,
                                     numLayers=args.num_hidden,
                                     lb=ic_dataset.lb,
                                     ub=ic_dataset.ub,
@@ -275,7 +275,7 @@ if __name__ == "__main__":
                    dataset_mode='max'
                    )
     if pinn.rank == 0:
-        logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp', group=args.name)
+        logger = pf.WandbLogger(project='wave_equation_pinn', args=args, entity='aipp', group=None)
         wandb.watch(model)
     else:
         logger = None
@@ -299,7 +299,7 @@ if __name__ == "__main__":
              lbfgs_finetuning=False,
              writing_cylcle=10,
              activate_annealing=args.annealing,
-             logger=None,
+             logger=logger,
              checkpoint_path=checkpoint_path,
              restart=args.restart,
              callbacks=cb_list,

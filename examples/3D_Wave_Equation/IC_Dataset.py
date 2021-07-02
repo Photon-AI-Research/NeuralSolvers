@@ -64,7 +64,7 @@ class ICDataset(Dataset):
 
         self.input_2000 = np.concatenate([z, y, x, t], axis=1)
         self.input_2100 = np.copy(self.input_2000)
-        self.input_2100[:, 3] = max_t
+        self.input_2100[:, 3] = 2100
 
         self.input_x = np.concatenate([self.input_2000, self.input_2100])
 

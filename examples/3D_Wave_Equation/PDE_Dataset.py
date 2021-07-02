@@ -42,8 +42,8 @@ class PDEDataset(Dataset):
         """
         Yields the batches of xf
         """
-        z = np.random.normal(128, 10, size=self.batch_size).reshape(-1, 1) * self.cell_depth
-        x = np.random.normal(128, 10, size=self.batch_size).reshape(-1, 1) * self.cell_width  # reduce sampling in x-direction
+        z = np.random.normal(128, 30, size=self.batch_size).reshape(-1, 1) * self.cell_depth
+        x = np.random.normal(128, 30, size=self.batch_size).reshape(-1, 1) * self.cell_width  # reduce sampling in x-direction
         t = np.random.uniform(self.iteration, self.tmax, size=self.batch_size).reshape(-1, 1)
         y = np.random.uniform(0, 2047, size=self.batch_size).reshape(-1, 1) * self.cell_height
         xf = np.concatenate([z, y, x, t], axis=1)
