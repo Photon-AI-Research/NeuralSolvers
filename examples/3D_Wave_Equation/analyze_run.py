@@ -87,6 +87,8 @@ if __name__ == "__main__":
     print("lb:",dataset_2000.lb)
     print("ub:",dataset_2000.ub)
     dataset_2100 = ICDataset(args.path, 2100, 10000, 0, 2100, False)
+    #dataset_2200 = ICDataset(args.path, 2200, 10000, 0, 2200, False)
+
     model = pf.models.FingerNet(numFeatures=300,
                                 numLayers=8,
                                 lb=dataset_2000.lb,
@@ -100,27 +102,26 @@ if __name__ == "__main__":
 
     model.load_state_dict(torch.load(pinn_path))
     model.eval()
-    print("eval",flush=True)
     #analyze(model, args.name, 2000, dataset_2000)
     #analyze(model, args.name, 2100, dataset_2100)
     input_x = dataset_2000.input_x
     input_x = input_x.reshape(256, 2048, 256,4)
-    input_x = input_x[128:133, 500:700, 128:133, :]
-    for i in range(2000,2101):
+    input_x = input_x[128:133, : , 128:133, :]
+    for i in range(2000, 2200, 10):
         x = torch.Tensor(input_x.reshape(-1, 4))
         x[:, 3] = i
         x = x.float().cuda()
         x.requires_grad = True
         u = model(x)
         f_u, u_tt, u_zz, u_yy, u_xx, u_y, u_t = wave_eq(x, u)
-        np.save("time_series/prediction{}".format(i), u.detach().cpu().numpy())
-        np.save("time_series/f_u_{}".format(i), f_u.detach().cpu().numpy())
-        np.save("time_series/u_tt_{}".format(i), u_tt.detach().cpu().numpy())
-        np.save("time_series/u_zz_{}".format(i), u_zz.detach().cpu().numpy())
-        np.save("time_series/u_yy_{}".format(i), u_yy.detach().cpu().numpy())
-        np.save("time_series/u_xx_{}".format(i), u_xx.detach().cpu().numpy())
-        np.save("time_series/u_y_{}".format(i), u_y.detach().cpu().numpy())
-        np.save("time_series/u_t_{}".format(i), u_t.detach().cpu().numpy())
+        np.save("interpolation/prediction{}".format(i), u.detach().cpu().numpy())
+        np.save("interpolation/f_u_{}".format(i), f_u.detach().cpu().numpy())
+        np.save("interpolation/u_tt_{}".format(i), u_tt.detach().cpu().numpy())
+        np.save("interpolation/u_zz_{}".format(i), u_zz.detach().cpu().numpy())
+        np.save("interpolation/u_yy_{}".format(i), u_yy.detach().cpu().numpy())
+        np.save("interpolation/u_xx_{}".format(i), u_xx.detach().cpu().numpy())
+        np.save("interpolation/u_y_{}".format(i), u_y.detach().cpu().numpy())
+        np.save("interpolation/u_t_{}".format(i), u_t.detach().cpu().numpy())
 
 
 
