@@ -10,47 +10,19 @@ import PINNFramework as pf
 from IC_Dataset import ICDataset as ICDataset
 
 
-def analyze(model, name, time, dataset, eval_bs=1048576):
+def analyze(model, time, dataset, eval_bs=1048576):
     with torch.no_grad():
-        num_batches = int(dataset.input_x.shape[0] / eval_bs)
+        num_batches = int(dataset.input_2000.shape[0] / eval_bs)
+        dataset.input_2000[:,3] = time
         outputs = []
         for idx in range(num_batches):
-            x = torch.tensor(dataset.input_x[eval_bs * idx: eval_bs * (idx + 1), :]).float().cuda()
+            x = torch.tensor(dataset.input_2000[eval_bs * idx: eval_bs * (idx + 1), :]).float().cuda()
             output = model(x).detach().cpu().numpy()
             outputs.append(output)
 
         pred = np.concatenate(outputs, axis=0)
         pred = pred.reshape(256, 2048, 256)
-
-        fig1 = plt.figure()
-        slc = pred[:, :, 120]
-        plt.imshow(slc, cmap='jet', aspect='auto')
-        plt.colorbar()
-        plt.xlabel("z")
-        plt.ylabel("y")
-
-        fig2 = plt.figure()
-        slc = pred[:, 800, :]
-        plt.imshow(slc, cmap='jet', aspect='auto')
-        plt.colorbar()
-        plt.xlabel("z")
-        plt.ylabel("x")
-
-        fig3 = plt.figure()
-        slc = pred[120, :, :]
-        plt.imshow(slc, cmap='jet', aspect='auto')
-        plt.colorbar()
-        plt.xlabel("y")
-        plt.ylabel("x")
-        np.save("pred_"+name+"_"+str(time),pred)
-        np.save("gt_"+ str(time),dataset.e_field)
-        np.save("training_x_" + str(time), dataset.input_x)
-        np.save("training_y_" + str(time), dataset.e_field)
-        del pred  # clear memory
-
-        fig1.savefig("zy_{}_{}.png".format(name, time))
-        fig2.savefig("zx_{}_{}.png".format(name, time))
-        fig3.savefig("yx_{}_{}.png".format(name, time))
+        np.save("complete_predictions/prediction_{}", pred)
 
 def wave_eq(x, u):
 
@@ -86,7 +58,7 @@ if __name__ == "__main__":
     print("scaling:", dataset_2000.e_field_max)
     print("lb:",dataset_2000.lb)
     print("ub:",dataset_2000.ub)
-    dataset_2100 = ICDataset(args.path, 2100, 10000, 0, 2100, False)
+    #dataset_2100 = ICDataset(args.path, 2100, 10000, 0, 2100, False)
     #dataset_2200 = ICDataset(args.path, 2200, 10000, 0, 2200, False)
 
     model = pf.models.FingerNet(numFeatures=300,
@@ -102,11 +74,16 @@ if __name__ == "__main__":
 
     model.load_state_dict(torch.load(pinn_path))
     model.eval()
-    #analyze(model, args.name, 2000, dataset_2000)
-    #analyze(model, args.name, 2100, dataset_2100)
+    for i in range(2000,2101,10):
+        analyze(model, i, dataset_2000)
+
+
+    """
     input_x = dataset_2000.input_x
     input_x = input_x.reshape(256, 2048, 256,4)
     input_x = input_x[128:133, : , 128:133, :]
+    
+    
     for i in range(2000, 2200, 10):
         x = torch.Tensor(input_x.reshape(-1, 4))
         x[:, 3] = i
@@ -122,6 +99,7 @@ if __name__ == "__main__":
         np.save("interpolation/u_xx_{}".format(i), u_xx.detach().cpu().numpy())
         np.save("interpolation/u_y_{}".format(i), u_y.detach().cpu().numpy())
         np.save("interpolation/u_t_{}".format(i), u_t.detach().cpu().numpy())
+    """
 
 
 
