@@ -13,7 +13,8 @@ import torch.nn as nn
 from torch.distributions.normal import Normal
 import numpy as np
 import torch.nn.functional as F
-from PINNFramework.models.mlp import MLP    
+from PINNFramework.models.mlp import MLP
+
 
 class SparseDispatcher(object):
     """Helper for implementing a mixture of experts.
@@ -54,13 +55,13 @@ class SparseDispatcher(object):
         # sort experts
         sorted_experts, index_sorted_experts = torch.nonzero(gates).sort(0)
         # drop indices
-        _, self._expert_index = sorted_experts.split(1, dim=1)
+        _, self._expert_index = sorted_experts.split(1, dim = 1)
         # get according batch index for each expert
-        self._batch_index = sorted_experts[index_sorted_experts[:, 1],0]
+        self._batch_index = sorted_experts[ index_sorted_experts[ :, 1 ], 0 ]
         # calculate num samples that each expert gets
-        self._part_sizes = list((gates > 0).sum(0).to(device))#.cuda())
+        self._part_sizes = list((gates > 0).sum(0).to(device))  # .cuda())
         # expand gates to match with self._batch_index
-        gates_exp = gates[self._batch_index.flatten()]
+        gates_exp = gates[ self._batch_index.flatten() ]
         self._nonzero_gates = torch.gather(gates_exp, 1, self._expert_index)
 
     def dispatch(self, inp):
@@ -77,11 +78,10 @@ class SparseDispatcher(object):
         # assigns samples to experts whose gate is nonzero
 
         # expand according to batch index so we can just split by _part_sizes
-        inp_exp = inp[self._batch_index].squeeze(1)
-        return torch.split(inp_exp, self._part_sizes, dim=0)
+        inp_exp = inp[ self._batch_index ].squeeze(1)
+        return torch.split(inp_exp, self._part_sizes, dim = 0)
 
-
-    def combine(self, expert_out, multiply_by_gates=True):
+    def combine(self, expert_out, multiply_by_gates = True):
         """Sum together the expert output, weighted by the gates.
         The slice corresponding to a particular batch element `b` is computed
         as the sum over all experts `i` of the expert output, weighted by the
@@ -99,14 +99,14 @@ class SparseDispatcher(object):
 
         if multiply_by_gates:
             stitched = stitched.mul(self._nonzero_gates)
-        zeros = torch.zeros(self._gates.size(0), expert_out[-1].size(1), requires_grad=True).to(self.device)#.cuda()
+        zeros = torch.zeros(self._gates.size(0), expert_out[ -1 ].size(1), requires_grad = True).to(
+            self.device)  # .cuda()
         # combine samples that have been processed by the same k experts
         combined = zeros.index_add(0, self._batch_index, stitched.float())
         # add eps to all zero values in order to avoid nans when going back to log space
-        combined[combined == 0] = np.finfo(float).eps
+        combined[ combined == 0 ] = np.finfo(float).eps
         # back to log space
         return combined.log()
-
 
     def expert_to_gates(self):
         """Gate values corresponding to the examples in the per-expert `Tensor`s.
@@ -115,13 +115,10 @@ class SparseDispatcher(object):
               and shapes `[expert_batch_size_i]`
         """
         # split nonzero gates for each expert
-        return torch.split(self._nonzero_gates, self._part_sizes, dim=0)
-
-
+        return torch.split(self._nonzero_gates, self._part_sizes, dim = 0)
 
 
 class MoE(nn.Module):
-
     """Call a Sparsely gated mixture of experts layer with 1-layer Feed-Forward networks as experts.
     Args:
     input_size: integer - size of the input
@@ -132,7 +129,8 @@ class MoE(nn.Module):
     k: an integer - how many experts to use for each batch element
     """
 
-    def __init__(self, input_size, output_size, num_experts, hidden_size, num_hidden, activation=torch.tanh, non_linear=False,noisy_gating=False, k=4, device = "cpu"):
+    def __init__(self, input_size, output_size, num_experts, hidden_size, num_hidden, activation = torch.tanh,
+                 non_linear = False, noisy_gating = False, k = 4, device = "cpu"):
         super(MoE, self).__init__()
         self.noisy_gating = noisy_gating
         self.num_experts = num_experts
@@ -144,20 +142,21 @@ class MoE(nn.Module):
         self.loss = 0
 
         # instantiate experts
-        self.experts = nn.ModuleList([MLP(input_size, output_size, hidden_size, num_hidden, activation) for i in range(self.num_experts)])
-        
-        self.w_gate = nn.Parameter(torch.randn(input_size, num_experts), requires_grad=True)
-        self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True)
+        self.experts = nn.ModuleList(
+            [ MLP(input_size, output_size, hidden_size, num_hidden, activation) for i in range(self.num_experts) ])
+
+        self.w_gate = nn.Parameter(torch.randn(input_size, num_experts), requires_grad = True)
+        self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad = True)
 
         self.softplus = nn.Softplus()
         self.softmax = nn.Softmax(1)
-        self.normal = Normal(torch.tensor([0.0]).to(self.device), torch.tensor([1.0]))
-        
+        self.normal = Normal(torch.tensor([ 0.0 ]).to(self.device), torch.tensor([ 1.0 ]))
+
         self.non_linear = non_linear
         if self.non_linear:
-            self.gating_network = MLP(input_size,num_experts,num_experts*2,1,activation=F.relu)
+            self.gating_network = MLP(input_size, num_experts, num_experts * 2, 1, activation = F.relu)
 
-        assert(self.k <= self.num_experts)
+        assert (self.k <= self.num_experts)
 
     def cv_squared(self, x):
         """The squared coefficient of variation of a sample.
@@ -171,10 +170,9 @@ class MoE(nn.Module):
         """
         eps = 1e-10
         # if only num_experts = 1
-        if x.shape[0] == 1:
-            return torch.Tensor([0])
-        return x.float().var() / (x.float().mean()**2 + eps)
-
+        if x.shape[ 0 ] == 1:
+            return torch.Tensor([ 0 ])
+        return x.float().var() / (x.float().mean() ** 2 + eps)
 
     def _gates_to_load(self, gates):
         """Compute the true load per expert, given the gates.
@@ -185,9 +183,6 @@ class MoE(nn.Module):
         a float32 `Tensor` of shape [n]
         """
         return (gates > 0).sum(0)
-
-
-
 
     def _prob_in_top_k(self, clean_values, noisy_values, noise_stddev, noisy_top_values):
         """Helper function to NoisyTopKGating.
@@ -210,19 +205,17 @@ class MoE(nn.Module):
         batch = clean_values.size(0)
         m = noisy_top_values.size(1)
         top_values_flat = noisy_top_values.flatten()
-        threshold_positions_if_in = (torch.arange(batch) * m + self.k).to(self.device)#.cuda()
+        threshold_positions_if_in = (torch.arange(batch) * m + self.k).to(self.device)  # .cuda()
         threshold_if_in = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_in), 1)
         is_in = torch.gt(noisy_values, threshold_if_in)
-        threshold_positions_if_out = (threshold_positions_if_in - 1).to(self.device)#.cuda()
-        threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat,0 , threshold_positions_if_out), 1)
+        threshold_positions_if_out = (threshold_positions_if_in - 1).to(self.device)  # .cuda()
+        threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
         # is each value currently in the top k.
-        prob_if_in = self.normal.cdf((clean_values - threshold_if_in)/noise_stddev)
-        prob_if_out = self.normal.cdf((clean_values - threshold_if_out)/noise_stddev)
-        prob = torch.where(is_in, prob_if_in, prob_if_out)
-        return prob
+        prob_if_in = self.normal.cdf((clean_values - threshold_if_in) / noise_stddev)
+        prob_if_out = self.normal.cdf((clean_values - threshold_if_out) / noise_stddev)
+        return torch.where(is_in, prob_if_in, prob_if_out)
 
-
-    def noisy_top_k_gating(self, x, train, noise_epsilon=1e-2):
+    def noisy_top_k_gating(self, x, train, noise_epsilon = 1e-2):
         """Noisy top-k gating.
           See paper: https://arxiv.org/abs/1701.06538.
           Args:
@@ -234,29 +227,26 @@ class MoE(nn.Module):
             load: a Tensor with shape [num_experts]
         """
 
-        if self.non_linear:
-            clean_logits = self.gating_network(x)
-        else:
-            clean_logits = x @ self.w_gate
+        clean_logits = self.gating_network(x) if self.non_linear else x @ self.w_gate
         if self.noisy_gating:
             raw_noise_stddev = x @ self.w_noise
-            if(self.k > 1):
+            if (self.k > 1):
                 raw_noise_stddev = self.softplus(raw_noise_stddev)
             noise_stddev = ((raw_noise_stddev + noise_epsilon) * train)
-            noisy_logits = clean_logits + ( torch.randn_like(clean_logits) * noise_stddev)
+            noisy_logits = clean_logits + (torch.randn_like(clean_logits) * noise_stddev)
             logits = noisy_logits
         else:
             logits = clean_logits
 
         # calculate topk + 1 that will be needed for the noisy gates
-        top_logits, top_indices = logits.topk(min(self.k + 1, self.num_experts), dim=1)
-        top_k_logits = top_logits[:, :self.k]
-        top_k_indices = top_indices[:, :self.k]
-        if(self.k > 1):
+        top_logits, top_indices = logits.topk(min(self.k + 1, self.num_experts), dim = 1)
+        top_k_logits = top_logits[ :, :self.k ]
+        top_k_indices = top_indices[ :, :self.k ]
+        if (self.k > 1):
             top_k_gates = self.softmax(top_k_logits)
         else:
             top_k_gates = torch.sigmoid(top_k_logits)
-        zeros = torch.zeros_like(logits, requires_grad=True)
+        zeros = torch.zeros_like(logits, requires_grad = True)
         gates = zeros.scatter(1, top_k_indices, top_k_gates)
 
         if self.noisy_gating and self.k < self.num_experts:
@@ -264,13 +254,11 @@ class MoE(nn.Module):
         else:
             load = self._gates_to_load(gates)
         return gates, load
-    
 
     def get_utilisation_loss(self):
         return self.loss
-    
 
-    def forward(self, x, train=True, loss_coef=1e-2):
+    def forward(self, x, train = True, loss_coef = 1e-2):
         """Args:
         x: tensor shape [batch_size, input_size]
         train: a boolean scalar.
@@ -287,12 +275,11 @@ class MoE(nn.Module):
         #
         loss = self.cv_squared(importance) + self.cv_squared(load)
         loss *= loss_coef
-        
+
         self.loss = loss
 
         dispatcher = SparseDispatcher(self.num_experts, gates)
         expert_inputs = dispatcher.dispatch(x)
         gates = dispatcher.expert_to_gates()
-        expert_outputs = [self.experts[i](expert_inputs[i].unsqueeze(1)) for i in range(self.num_experts)]
-        y = dispatcher.combine(expert_outputs)
-        return y #, loss
+        expert_outputs = [ self.experts[ i ](expert_inputs[ i ].unsqueeze(1)) for i in range(self.num_experts) ]
+        return dispatcher.combine(expert_outputs)

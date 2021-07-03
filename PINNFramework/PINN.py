@@ -23,7 +23,7 @@ class PINN(nn.Module):
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
         condition(BC) and the PDE and a dataset which represents the bounded domain U.
 
-        Args: 
+        Args:
             model : is the model which is trained to represent the underlying PDE
             input_dimension : represents the dimension of the input vector x
             output_dimension : represents the dimension of the solution u
@@ -48,38 +48,36 @@ class PINN(nn.Module):
             torch.cuda.set_device(hvd.local_rank())
             self.rank = hvd.rank()
 
-        if isinstance(model, nn.Module):
-            self.model = model
-            if self.use_gpu:
-                self.model.cuda()
-                self.dtype = torch.cuda.FloatTensor
-            else:
-                self.dtype = torch.FloatTensor
-        else:
+        if not isinstance(model, nn.Module):
             raise TypeError("Only models of type torch.nn.Module are allowed")
 
-        # checking if the input dimension is well defined 
-        if not type(input_dimension) is int:
+        self.model = model
+        if self.use_gpu:
+            self.model.cuda()
+            self.dtype = torch.cuda.FloatTensor
+        else:
+            self.dtype = torch.FloatTensor
+        # checking if the input dimension is well defined
+        if type(input_dimension) is not int:
             raise TypeError("Only integers are allowed as input dimension")
         elif input_dimension <= 0:
             raise ValueError("Input dimension has to be greater than zero")
         else:
             self.input_dimension = input_dimension
 
-        # checking if the output dimension is well defined 
-        if not type(output_dimension) is int:
+        # checking if the output dimension is well defined
+        if type(output_dimension) is not int:
             raise TypeError("Only integers are allowed as output dimension")
         elif input_dimension <= 0:
             raise ValueError("Input dimension has to be greater than zero")
         else:
             self.output_dimension = output_dimension
 
-        if isinstance(pde_loss, PDELoss):
-            self.pde_loss = pde_loss
-            self.is_hpm = False
-        else:
+        if not isinstance(pde_loss, PDELoss):
             raise TypeError("PDE loss has to be an instance of a PDE Loss class")
 
+        self.pde_loss = pde_loss
+        self.is_hpm = False
         if isinstance(pde_loss,HPMLoss):
             self.is_hpm = True
 
@@ -97,12 +95,11 @@ class PINN(nn.Module):
                     self.boundary_condition = boundary_condition
                     joined_datasets[bc.name] = bc.dataset
 
+            elif isinstance(boundary_condition, BoundaryCondition):
+                self.boundary_condition = boundary_condition
             else:
-                if isinstance(boundary_condition, BoundaryCondition):
-                    self.boundary_condition = boundary_condition
-                else:
-                    raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
-                                    "or a list of instances of the BoundaryCondition class")
+                raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class"
+                                "or a list of instances of the BoundaryCondition class")
         self.dataset = JoinedDataset(joined_datasets)
 
     def forward(self, x):
@@ -154,18 +151,14 @@ class PINN(nn.Module):
 
         if isinstance(boundary_condition, PeriodicBC):
             # Periodic Boundary Condition
-            if isinstance(training_data, list):
-                if len(training_data) == 2:
-                    return boundary_condition(training_data[0][0].type(self.dtype),
-                                              training_data[1][0].type(self.dtype),
-                                              self.model)
-                else:
-                    raise ValueError(
-                        "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
-                        format(boundary_condition.name))
+            if isinstance(training_data, list) and len(training_data) == 2:
+                return boundary_condition(training_data[0][0].type(self.dtype),
+                                          training_data[1][0].type(self.dtype),
+                                          self.model)
             else:
-                raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
-                                 format(boundary_condition.name))
+                raise ValueError(
+                    "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
+                    format(boundary_condition.name))
         if isinstance(boundary_condition, DirichletBC):
             # Dirchlet Boundary Condition
             if not isinstance(training_data, list):
@@ -182,18 +175,14 @@ class PINN(nn.Module):
                                  format(boundary_condition.name))
         if isinstance(boundary_condition, RobinBC):
             # Robin Boundary Condition
-            if isinstance(training_data, list):
-                if len(training_data) == 2:
-                    return boundary_condition(training_data[0][0].type(self.dtype),
-                                              training_data[1][0].type(self.dtype),
-                                              self.model)
-                else:
-                    raise ValueError(
-                        "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
-                        format(boundary_condition.name))
+            if isinstance(training_data, list) and len(training_data) == 2:
+                return boundary_condition(training_data[0][0].type(self.dtype),
+                                          training_data[1][0].type(self.dtype),
+                                          self.model)
             else:
-                raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
-                                 format(boundary_condition.name))
+                raise ValueError(
+                    "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
+                    format(boundary_condition.name))
 
     def pinn_loss(self, training_data):
         """
@@ -208,30 +197,38 @@ class PINN(nn.Module):
 
         pinn_loss = 0
         # unpack training data
-        if type(training_data["Initial_Condition"]) is list:
-            # initial condition loss
-            if len(training_data["Initial_Condition"]) == 2:
-                pinn_loss = pinn_loss + self.initial_condition(training_data["Initial_Condition"][0][0].type(self.dtype),
-                                                               self.model,
-                                                               training_data["Initial_Condition"][1][0].type(self.dtype))
-            else:
-                raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
-                                 " and ground truth values y")
-        else:
+        if type(training_data["Initial_Condition"]) is not list:
             raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                              " and ground truth values y")
 
+            # initial condition loss
+        if len(training_data["Initial_Condition"]) == 2:
+            pinn_loss += self.initial_condition(
+                training_data["Initial_Condition"][0][0].type(self.dtype),
+                self.model,
+                training_data["Initial_Condition"][1][0].type(self.dtype),
+            )
+
+        else:
+            raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
+                             " and ground truth values y")
         if type(training_data["PDE"]) is not list:
-            pinn_loss = pinn_loss + self.pde_loss(training_data["PDE"][0].type(self.dtype), self.model)
+            pinn_loss += self.pde_loss(
+                training_data["PDE"][0].type(self.dtype), self.model
+            )
+
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
         if not self.is_hpm:
             if isinstance(self.boundary_condition, list):
                 for bc in self.boundary_condition:
-                    pinn_loss = pinn_loss + self.calculate_boundary_condition(bc, training_data[bc.name])
+                    pinn_loss += self.calculate_boundary_condition(bc, training_data[bc.name])
             else:
-                pinn_loss = pinn_loss + self.calculate_boundary_condition(self.boundary_condition,
-                                                                          training_data[self.boundary_condition.name])
+                pinn_loss += self.calculate_boundary_condition(
+                    self.boundary_condition,
+                    training_data[self.boundary_condition.name],
+                )
+
         return pinn_loss
 
     def fit(self, epochs, optimizer='Adam', learning_rate=1e-3, lbfgs_finetuning=True,
