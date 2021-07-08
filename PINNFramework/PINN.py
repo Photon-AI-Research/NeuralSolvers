@@ -5,7 +5,7 @@ from os.path import exists
 from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
-from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC
+from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC, TimeDerivativeBC
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
@@ -222,6 +222,21 @@ class PINN(nn.Module):
                 else:
                     raise ValueError(
                         "The boundary condition {} has to be tuple of coordinates for lower and upper bound".
+                            format(boundary_condition.name))
+            else:
+                raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
+                                 format(boundary_condition.name))
+
+        if isinstance(boundary_condition, TimeDerivativeBC):
+            # Robin Boundary Condition
+            if isinstance(training_data, list):
+                if len(training_data) == 2:
+                    return boundary_condition(training_data[0][0].type(self.dtype),
+                                              training_data[1][0].type(self.dtype),
+                                              self.model)
+                else:
+                    raise ValueError(
+                        "The boundary condition {} has to be tuple of coordinates for input data and gt time derivative".
                             format(boundary_condition.name))
             else:
                 raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".

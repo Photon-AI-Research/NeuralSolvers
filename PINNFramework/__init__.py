@@ -3,6 +3,7 @@ from .InitalCondition import InitialCondition
 from .BoundaryCondition import PeriodicBC
 from .BoundaryCondition import DirichletBC
 from .BoundaryCondition import RobinBC
+from .BoundaryCondition import TimeDerivativeBC
 from .BoundaryCondition import NeumannBC
 from .PDELoss import PDELoss
 from .Logger_Interface import LoggerInterface
@@ -19,6 +20,7 @@ __all__ = [
     'DirichletBC',
     'RobinBC',
     'NeumannBC',
+    'TimeDerivativeBC',
     'PDELoss',
     'HPMLoss',
     'PINN',

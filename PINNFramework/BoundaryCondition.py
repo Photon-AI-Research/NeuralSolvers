@@ -129,3 +129,21 @@ class PeriodicBC(BoundaryCondition):
 
         else:
             raise NotImplementedError("Periodic Boundary Condition for a higher degree than one is not supported")
+
+
+class TimeDerivativeBC(BoundaryCondition):
+    """
+    For hyperbolic systems it may be needed to initialize the time derivative. This boundary condition intializes
+    the time derivative in a data driven way.
+
+    """
+    def __init__(self, dataset, name, norm='L2', weight=1):
+        super(TimeDerivativeBC, self).__init__(dataset, name, norm, weight)
+
+    def __call__(self, x, dt_y, model):
+        x.requires_grad = True
+        pred = model(x)
+        grads = ones(pred.shape, device=pred.device)
+        pred_dt = grad(pred, x, create_graph=True, grad_outputs=grads)[0][:, -1]
+        return self.weight * self.norm(pred_dt, dt_y)
+

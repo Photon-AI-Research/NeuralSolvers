@@ -1,6 +1,7 @@
 from torch.utils.data import DataLoader
 from IC_Dataset import ICDataset as ICDataset
 from PDE_Dataset import PDEDataset as PDEDataset
+from TD_BC_Dataset import TDBCDataset as DTDataset
 from BC_Dataset import BoundaryDataset as BCDataset
 from argparse import ArgumentParser
 import sys
@@ -204,15 +205,13 @@ if __name__ == "__main__":
     print("pde", len(pde_dataset))
     pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
 
+    bc_dataset = DTDataset(args.path, args.iteration, args.nb, args.batch_size_nb)
+    dt_boundary = pf.TimeDerivativeBC(bc_dataset, "Time Derivative Boundary")
     #boundary_x = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 2), 0, "Boundary x")
     #boundary_y = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 1), 0, "Boundary y")
     #boundary_z = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 0), 0, "Boundary z")
 
-    if args.boundary == 0:
-        boundary_conditions = []
-        print("created no boundary")
-    else:
-        boundary_conditions = []
+    boundary_conditions = [dt_boundary]
 
     if args.activation == 'tanh':
         activation = torch.tanh
