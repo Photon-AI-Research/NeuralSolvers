@@ -117,7 +117,8 @@ class PINN(nn.Module):
                     if not isinstance(bc, BoundaryCondition):
                         raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
                     joined_datasets[bc.name] = bc.dataset
-                    self.loss_log[bc.name] = float(0.0)
+                    if self.rank == 0:
+                        self.loss_log[bc.name] = float(0.0)
                 self.boundary_condition = boundary_condition
             else:
                 if isinstance(boundary_condition, BoundaryCondition):
