@@ -1,4 +1,4 @@
-# NeuralSolvers :milky_way:
+# Neural Solvers :milky_way:
 Neural network based solvers for partial differential equations and inverse problems
 
 ```
