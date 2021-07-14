@@ -526,31 +526,31 @@ class PINN(nn.Module):
                 del pinn_loss
 
             if not self.rank:
-                print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch, epochs), flush=True)
-                if logger is not None and not epoch % writing_cylcle:
+                print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch+1, epochs), flush=True)
+                if logger is not None and not (epoch+1) % writing_cylcle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
                     logger.log_scalar(scalar=sum(self.loss_log.values())/batch_counter,
-                                      name=" Non-Weighted PINN Loss", epoch=epoch)
+                                      name=" Non-Weighted PINN Loss", epoch=epoch+1)
                     # Log values of the loss terms
                     for key, value in self.loss_log.items():
-                        logger.log_scalar(scalar=value / batch_counter, name=key, epoch=epoch)
+                        logger.log_scalar(scalar=value / batch_counter, name=key, epoch=epoch+1)
 
                     # Log weights of loss terms separately
                     logger.log_scalar(scalar=self.initial_condition.weight,
                                       name=self.initial_condition.name + "_weight",
-                                      epoch=epoch)
+                                      epoch=epoch+1)
                     if not self.is_hpm:
                         if isinstance(self.boundary_condition, list):
                             for bc in self.boundary_condition:
                                 logger.log_scalar(scalar=bc.weight,
                                                   name=bc.name + "_weight",
-                                                  epoch=epoch)
+                                                  epoch=epoch+1)
                         else:
                             logger.log_scalar(scalar=self.boundary_condition.weight,
                                               name=self.boundary_condition.name + "_weight",
-                                              epoch=epoch)
-                if callbacks is not None and not epoch % writing_cylcle:
-                    callbacks(epoch=epoch)
+                                              epoch=epoch+1)
+                if callbacks is not None and not (epoch+1) % writing_cylcle:
+                    callbacks(epoch=epoch+1)
                 # saving routine
                 if (pinn_loss_sum / batch_counter < minimum_pinn_loss) and save_model:
                     self.save_model(pinn_path, hpm_path)
