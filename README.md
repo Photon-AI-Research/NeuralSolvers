@@ -5,7 +5,16 @@
 </figure>
 
 # Introduction
-Neural network based solvers for partial differential equations and inverse problems
+Neural network based solver for partial differential equations and inverse problems written in pytorch. 
+The framework implements the physics-informed neural network approach. Physically informed neural networks
+allow strong scaling by design. Therefore, we have developed a framework that uses data parallelism to accelerate the training of 
+physically informed neural networks significantly. To implement data parallelism, we use the <a href="https://github.com/horovod/horovod">Horovod</a> framework, which provides near-ideal speedup on multi-GPU regimes.  
+
+<figure align="center">
+<img src="images/scalability.png" width="50%" />
+</figure>
+
+More detais about our framework you can find in our recent publication: 
 ```
 P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
 Large-scale Neural Solvers for Partial Differential Equations (2020).
