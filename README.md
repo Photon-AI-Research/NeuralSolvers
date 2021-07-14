@@ -1,11 +1,16 @@
 # Neural Solvers :milky_way:
 Neural network based solvers for partial differential equations and inverse problems
-
 ```
 P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
 Large-scale Neural Solvers for Partial Differential Equations (2020).
 
 ```
+
+### Training 1D Schrödinger Equation
+<figure align="center">
+<img src="images/1D_Schroedinger_training.gif" width="50%" />
+</figure>
+
 ## Implemented Approaches:
 ```
 Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis.
