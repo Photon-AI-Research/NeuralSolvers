@@ -262,7 +262,7 @@ class PINN(nn.Module):
                 std_pde = self.loss_grad_std_wn(pde_loss)
             pinn_loss = pinn_loss + pde_loss
             if self.rank == 0:
-                self.loss_log[self.pde_loss.name] = pde_loss + self.loss_log[self.pde_loss.name]
+                self.loss_log[self.pde_loss.name] = pde_loss + self.loss_log[self.pde_loss.name] / self.pde_loss.weight
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
 
