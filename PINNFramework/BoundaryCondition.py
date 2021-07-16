@@ -145,5 +145,6 @@ class TimeDerivativeBC(BoundaryCondition):
         pred = model(x)
         grads = ones(pred.shape, device=pred.device)
         pred_dt = grad(pred, x, create_graph=True, grad_outputs=grads)[0][:, -1]
+        pred_dt = pred_dt.reshape(-1,1)
         return self.weight * self.norm(pred_dt, dt_y)
 
