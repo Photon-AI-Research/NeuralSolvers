@@ -45,6 +45,8 @@ class PINN(nn.Module):
             of the BoundaryCondition class
             use_gpu: enables gpu usage
             use_horovod: enables horovod support
+            dataset_mode: defines the behavior of the joined dataset. The 'min'-mode sets the length of the dataset to
+            the minimum of the
 
         """
         super(PINN, self).__init__()
@@ -140,7 +142,7 @@ class PINN(nn.Module):
 
     def forward(self, x):
         """
-        Predicting the solution at given position x
+        Predicting the solution at given pos
         """
         return self.model(x)
 
@@ -320,10 +322,10 @@ class PINN(nn.Module):
             if self.rank == 0:
                 self.loss_log["model_loss_pinn"] = self.loss_log["model_loss_pinn"] + self.model.loss
         if self.is_hpm:
-            if hasattr(self.pde_loss.model, 'loss'):
-                pinn_loss = pinn_loss + self.model.loss
+            if hasattr(self.pde_loss.hpm_model, 'loss'):
+                pinn_loss = pinn_loss + self.pde_loss.hpm_model.loss
                 if self.rank == 0:
-                    self.loss_log["model_loss_hpm"] = self.loss_log["model_loss_hpm"] + self.model.loss
+                    self.loss_log["model_loss_hpm"] = self.loss_log["model_loss_hpm"] + self.pde_loss.hpm_model.loss
 
         return pinn_loss
 
@@ -358,7 +360,7 @@ class PINN(nn.Module):
             pretraining=False,
             epochs_pt=100,
             lbfgs_finetuning=True,
-            writing_cylcle=30,
+            writing_cycle=30,
             writing_cycle_pt=10,
             save_model=True,
             pinn_path='best_model_pinn.pt',
@@ -458,7 +460,7 @@ class PINN(nn.Module):
             # Broadcast parameters from rank 0 to all other processes.
             hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
             if isinstance(self.pde_loss, HPMLoss):
-                hvd.broadcast_parameters(self.pinn_loss.hpm_model.state_dict(), root_rank=0)
+                hvd.broadcast_parameters(self.pde_loss.hpm_model.state_dict(), root_rank=0)
             hvd.broadcast_optimizer_state(optim, root_rank=0)
 
         else:
@@ -527,7 +529,7 @@ class PINN(nn.Module):
 
             if not self.rank:
                 print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch+1, epochs), flush=True)
-                if logger is not None and not (epoch+1) % writing_cylcle:
+                if logger is not None and not (epoch+1) % writing_cycle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
                     logger.log_scalar(scalar=sum(self.loss_log.values())/batch_counter,
                                       name=" Non-Weighted PINN Loss", epoch=epoch+1)
@@ -549,7 +551,7 @@ class PINN(nn.Module):
                             logger.log_scalar(scalar=self.boundary_condition.weight,
                                               name=self.boundary_condition.name + "_weight",
                                               epoch=epoch+1)
-                if callbacks is not None and not (epoch+1) % writing_cylcle:
+                if callbacks is not None and not (epoch+1) % writing_cycle:
                     callbacks(epoch=epoch+1)
                 # saving routine
                 if (pinn_loss_sum / batch_counter < minimum_pinn_loss) and save_model:
@@ -561,10 +563,10 @@ class PINN(nn.Module):
                     self.loss_log[key] = float(0)
 
                 # writing checkpoint
-                if not (epoch + 1) % writing_cylcle and checkpoint_path is not None:
+                if not (epoch + 1) % writing_cycle and checkpoint_path is not None:
                     self.write_checkpoint(checkpoint_path, epoch, False, minimum_pinn_loss, optim)
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)
             print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch+1, epochs))
-            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
+            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cycle) and save_model:
                 self.save_model(pinn_path, hpm_path)
