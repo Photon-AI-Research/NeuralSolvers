@@ -506,9 +506,8 @@ class PINN(nn.Module):
                     ic_loss = self.initial_condition(model=self.model, x=x.type(self.dtype), gt_y=y.type(self.dtype))
                     ic_loss.backward()
                     optim.step()
-                    if not self.rank:
-                        if not (epoch + 1) % writing_cycle_pt and checkpoint_path is not None:
-                            self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
+                if not self.rank and not (epoch + 1) % writing_cycle_pt and checkpoint_path is not None:
+                    self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
                 if not self.rank:
                     print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch+1, epochs_pt))
         print("===== Main training =====")
