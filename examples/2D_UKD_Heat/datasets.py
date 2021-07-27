@@ -35,7 +35,7 @@ class InitialConditionDataset(Dataset):
     """
 
     @staticmethod
-    def segmentation(path_data, t_frame, num_x, num_y, threshold=32.4):
+    def segmentation(path_data, t_frame, num_x, num_y, params):
         """
         Calculate segmentation mask for the brain cortex depicted at time point t_frame
         Segmentation is calculated based on watershed algorithm with predefined threshold
@@ -48,6 +48,7 @@ class InitialConditionDataset(Dataset):
             seg_mask (numpy array [num_x, num_y]): binary segmentation mask
 
         """
+        threshold, sigma_color, sigma_spatial = params
         # Upload an image at time point t_frame
         h5_file = h5py.File(path_data + str(t_frame) + '.h5', 'r')
         value = np.array(h5_file['seq'][:])
@@ -61,8 +62,8 @@ class InitialConditionDataset(Dataset):
         # Apply bilateralFilter to improve segmentation quality
         value = denoise_bilateral(
             value,
-            sigma_color=5,
-            sigma_spatial=5,
+            sigma_color=sigma_color,
+            sigma_spatial=sigma_spatial,
             multichannel=False)
 
         # Segmentation algorithm
@@ -99,7 +100,7 @@ class InitialConditionDataset(Dataset):
 
         return value, timing
 
-    def __init__(self, data_info, batch_size, num_batches):
+    def __init__(self, data_info, batch_size, num_batches, segm_params):
         """Constructor of the initial condition dataset.
         Args:
             data_info (dict): dictionary with info about the data.
@@ -123,20 +124,23 @@ class InitialConditionDataset(Dataset):
             data_info["path_data"],
             0,
             data_info["num_x"],
-            data_info["num_y"])
+            data_info["num_y"],
+            segm_params)
 
         # Load each t_step-th frame from the dataset
         for t_frame in range(
                 0, data_info["num_t"], data_info["t_step"]):
             # Upload an image from dataset at time point t_frame
             u_exact, timing = self.load_frame(data_info["path_data"], t_frame)
-            u_exact = u_exact.reshape(data_info["num_x"], data_info["num_y"])
+            u_exact = u_exact.reshape(data_info["num_x"], data_info["num_y"]) #.astype(np.float)
+            
+            #u_exact = denoise_bilateral(u_exact,win_size=5,sigma_color=5,sigma_spatial=5,multichannel=False)
             u_exact = u_exact * seg_mask  # apply segmentation
             # sample only each pix_step-th spatial point from an image
             for x_i in range(
                     0, data_info["num_x"], data_info["pix_step"]):
                 for y_i in range(0, data_info["num_y"], data_info["pix_step"]):
-                    if u_exact[x_i, y_i] != 0:  # neglect non-cortex data
+                    if seg_mask[x_i, y_i] != 0:  # neglect non-cortex data
                         self.u_values.append(u_exact[x_i, y_i])
                         self.x_values.append(x_i)
                         self.y_values.append(y_i)
@@ -146,7 +150,7 @@ class InitialConditionDataset(Dataset):
         self.x_values = np.array(self.x_values).reshape(-1)
         self.y_values = np.array(self.y_values).reshape(-1)
         self.t_values = np.array(self.t_values).reshape(-1)
-        
+                
         self.x_indices = self.x_values.copy()
         self.y_indices = self.y_values.copy()
 
@@ -198,17 +202,19 @@ class InitialConditionDataset(Dataset):
 
         self.low_bound = dtype1(self.low_bound)
         self.up_bound = dtype1(self.up_bound)
-        
+    
+    """
     def cuda(self):
-        """
-        Sends the dataset to GPU
-        """        
+        
+        #Sends the dataset to GPU
+             
         self.x_values = self.x_values.cuda()
         self.y_values = self.y_values.cuda()
         self.t_values = self.t_values.cuda() 
         self.u_values = self.u_values.cuda()
         self.x_indices = self.x_indices.cuda()
         self.y_indices = self.y_indices.cuda()
+    """
         
     def __len__(self):
         """
@@ -246,7 +252,7 @@ class PDEDataset(Dataset):
     Dataset with points (x,y,t) to train HPM model on: HPM(x,y,t) ≈ du/dt.
     """
 
-    def __init__(self, data_info, batch_size, num_batches, erode):
+    def __init__(self, data_info, batch_size, num_batches, segm_params):
         """Constructor of the residual poins dataset.
         Args:
             data_info (dict): dictionary with info about the data.
@@ -258,19 +264,9 @@ class PDEDataset(Dataset):
         self.y_values = []
         self.t_values = []
         
-        if not erode:
-            seg_mask = InitialConditionDataset.segmentation(
-                data_info["path_data"], 0, data_info["num_x"], data_info["num_y"])
-        else:
-            seg_mask = binary_erosion(InitialConditionDataset.segmentation(
-                data_info["path_data"], 0, data_info["num_x"], data_info["num_y"]), iterations = 25)
+        seg_mask = InitialConditionDataset.segmentation(
+            data_info["path_data"], 0, data_info["num_x"], data_info["num_y"], segm_params)
 
-        h5_file = h5py.File(data_info["path_data"] + str(0) + '.h5', 'r')
-        u_exact = np.array(h5_file['seq'][:])
-        h5_file.close()
-
-        u_exact = u_exact.reshape(data_info["num_x"], data_info["num_y"])
-        u_exact = u_exact * seg_mask  # apply segmentation
         # Consider only each t_step-th frame
         for t_frame in range(
                 0, data_info["num_t"], data_info["t_step"]):
@@ -278,7 +274,7 @@ class PDEDataset(Dataset):
             for x_i in range(
                     0, data_info["num_x"], data_info["pix_step"]):
                 for y_i in range(0, data_info["num_y"], data_info["pix_step"]):
-                    if u_exact[x_i, y_i] != 0:  # neglect non-cortex data
+                    if seg_mask[x_i, y_i] != 0:  # neglect non-cortex data
                         self.x_values.append(x_i)
                         self.y_values.append(y_i)
                         self.t_values.append(t_frame)
@@ -323,17 +319,17 @@ class PDEDataset(Dataset):
         
         self.x_indices = dtype2(self.x_indices[:num_samples])
         self.y_indices = dtype2(self.y_indices[:num_samples])
-        
+    """  
     def cuda(self):
-        """
+        
         Sends the dataset to GPU
-        """        
+                
         self.x_values = self.x_values.cuda()
         self.y_values = self.y_values.cuda()
         self.t_values = self.t_values.cuda() 
         self.x_indices = self.x_indices.cuda()
         self.y_indices = self.y_indices.cuda()
-
+    """
     def __len__(self):
         """
         Length of the dataset
