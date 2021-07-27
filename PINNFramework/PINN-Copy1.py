@@ -263,7 +263,6 @@ class PINN(nn.Module):
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
 
         # ============== INITIAL CONDITION ============== "
-        # commented since needless when training a HPM model
         """
         if type(training_data[self.initial_condition.name]) is list:
             # initial condition loss
@@ -344,59 +343,6 @@ class PINN(nn.Module):
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
         checkpoint_path = checkpoint_path + '_' + str(epoch)
         torch.save(checkpoint, checkpoint_path)
-        
-    def init_optim(self, optimizer, learning_rate, pretraining=False, lbfgs_finetuning=False):
-        if isinstance(self.pde_loss, HPMLoss):
-            if pretraining:
-                params = self.model.parameters()
-                named_parameters = self.model.named_parameters()
-            else: 
-                params = self.pde_loss.hpm_model.parameters()
-                named_parameters = self.pde_loss.hpm_model.named_parameters()
-
-            if self.use_horovod and lbfgs_finetuning:
-                raise ValueError("LBFGS Finetuning is not possible with horovod")
-            if optimizer == 'Adam':
-                optim = torch.optim.Adam(params, lr=learning_rate)
-            elif optimizer == 'LBFGS':
-                if self.use_horovod:
-                    raise TypeError("LBFGS is not supported with Horovod")
-                else:
-                    optim = torch.optim.LBFGS(params, lr=learning_rate)
-            else:
-                optim = optimizer
-
-            if lbfgs_finetuning and not self.use_horovod:
-                lbfgs_optim = torch.optim.LBFGS(params, lr=0.9)
-
-                def closure():
-                    lbfgs_optim.zero_grad()
-                    pinn_loss = self.pinn_loss(training_data)
-                    pinn_loss.backward()
-                    return pinn_loss
-        else:
-            named_parameters = self.model.named_parameters()
-            if optimizer == 'Adam':
-                optim = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
-            elif optimizer == 'LBFGS':
-                optim = torch.optim.LBFGS(self.model.parameters(), lr=learning_rate)
-            else:
-                optim = optimizer
-
-            if lbfgs_finetuning and not self.use_horovod:
-                lbfgs_optim = torch.optim.LBFGS(self.model.parameters(), lr=0.9)
-
-                def closure():
-                    lbfgs_optim.zero_grad()
-                    pinn_loss = self.pinn_loss(training_data)
-                    pinn_loss.backward()
-                    return pinn_loss
-                
-            if self.use_horovod:
-                optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
-                hvd.broadcast_optimizer_state(optim, root_rank=0)
-                
-        return optim, named_parameters
 
     def fit(self,
             epochs,
@@ -444,15 +390,56 @@ class PINN(nn.Module):
             if not isinstance(callbacks, CallbackList):
                 raise ValueError("Callbacks has to be a instance of CallbackList but type {} was found".
                                  format(type(callbacks)))
-                       
+
+        if isinstance(self.pde_loss, HPMLoss):
+            params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
+            named_parameters = chain(self.model.named_parameters(), self.pde_loss.hpm_model.named_parameters())
+            if self.use_horovod and lbfgs_finetuning:
+                raise ValueError("LBFGS Finetuning is not possible with horovod")
+            if optimizer == 'Adam':
+                optim = torch.optim.Adam(params, lr=learning_rate)
+            elif optimizer == 'LBFGS':
+                if self.use_horovod:
+                    raise TypeError("LBFGS is not supported with Horovod")
+                else:
+                    optim = torch.optim.LBFGS(params, lr=learning_rate)
+            else:
+                optim = optimizer
+
+            if lbfgs_finetuning and not self.use_horovod:
+                lbfgs_optim = torch.optim.LBFGS(params, lr=0.9)
+
+                def closure():
+                    lbfgs_optim.zero_grad()
+                    pinn_loss = self.pinn_loss(training_data)
+                    pinn_loss.backward()
+                    return pinn_loss
+        else:
+            named_parameters = self.model.named_parameters()
+            if optimizer == 'Adam':
+                optim = torch.optim.Adam(self.model.parameters(), lr=learning_rate)
+            elif optimizer == 'LBFGS':
+                optim = torch.optim.LBFGS(self.model.parameters(), lr=learning_rate)
+            else:
+                optim = optimizer
+
+            if lbfgs_finetuning and not self.use_horovod:
+                lbfgs_optim = torch.optim.LBFGS(self.model.parameters(), lr=0.9)
+
+                def closure():
+                    lbfgs_optim.zero_grad()
+                    pinn_loss = self.pinn_loss(training_data)
+                    pinn_loss.backward()
+                    return pinn_loss
+
         minimum_pinn_loss = float("inf")
-        minimum_ic_loss = float("inf")
         if self.use_horovod:
             # Partition dataset among workers using DistributedSampler
             train_sampler = torch.utils.data.distributed.DistributedSampler(
                 self.dataset, num_replicas=hvd.size(), rank=hvd.rank()
             )
             data_loader = DataLoader(self.dataset, batch_size=1, sampler=train_sampler, worker_init_fn=worker_init_fn)
+            optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
             if pretraining:
                 train_sampler_pt = torch.utils.data.distributed.DistributedSampler(
                     self.initial_condition.dataset, num_replicas=hvd.size(), rank=hvd.rank()
@@ -464,12 +451,13 @@ class PINN(nn.Module):
             # Broadcast parameters from rank 0 to all other processes.
             hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
             if isinstance(self.pde_loss, HPMLoss):
-                hvd.broadcast_parameters(self.pde_loss.hpm_model.state_dict(), root_rank=0)            
+                hvd.broadcast_parameters(self.pde_loss.hpm_model.state_dict(), root_rank=0)
+            hvd.broadcast_optimizer_state(optim, root_rank=0)
 
         else:
             data_loader = DataLoader(self.dataset, batch_size=1, worker_init_fn=worker_init_fn)
             data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None, worker_init_fn=worker_init_fn)
-        
+
         start_epoch = 0
 
         # load checkpoint routine if a checkpoint path is set and its allowed to not overwrite the checkpoint
@@ -495,6 +483,7 @@ class PINN(nn.Module):
             if self.is_hpm:
                 self.pde_loss.hpm_model.load_state_dict(checkpoint["hpm_model"])
 
+            optim.load_state_dict(checkpoint['optimizer'])
             minimum_pinn_loss = checkpoint["minimum_pinn_loss"]
             if not self.rank:
                 print("Checkpoint Loaded", flush=True)
@@ -508,34 +497,19 @@ class PINN(nn.Module):
             print("===== Pretraining =====")
             
         if pretraining:
-            # initialize an optimizer working on IC model only
-            optim, named_parameters = self.init_optim(optimizer, learning_rate, pretraining)
             for epoch in range(start_epoch, epochs_pt):
-                batch_counter = 0.
-                ic_loss_sum = 0.
                 for x, y in data_loader_pt:
                     optim.zero_grad()
                     ic_loss = self.initial_condition(model=self.model, x=x.type(self.dtype), gt_y=y.type(self.dtype))
                     ic_loss.backward()
-                    ic_loss_sum = ic_loss_sum + ic_loss
                     optim.step()
-                    batch_counter += 1
+                    if not self.rank:
+                        if not (epoch + 1) % writing_cycle_pt and checkpoint_path is not None:
+                            self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
                 if not self.rank:
-                    if not (epoch + 1) % writing_cycle_pt and checkpoint_path is not None:
-                        self.write_checkpoint(checkpoint_path, epoch, True, minimum_ic_loss, optim)
                     print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch+1, epochs_pt))
-                    if logger is not None and not (epoch+1) % writing_cylcle:
-                        logger.log_scalar(scalar=ic_loss_sum / batch_counter, name=" IC Loss", epoch=epoch)
-                    if (ic_loss_sum / batch_counter < minimum_ic_loss) and save_model:
-                        self.save_model(pinn_path, hpm_path)
-                        minimum_ic_loss = ic_loss_sum / batch_counter
-                        
         if not self.rank:
-            self.save_model(pinn_path, hpm_path)
             print("===== Main training =====")
-         
-        # initialize an optimizer working on HPM model only
-        optim, named_parameters = self.init_optim(optimizer, learning_rate)
             
         for epoch in range(start_epoch, epochs):
             # for parallel training the rank should also define the seed
