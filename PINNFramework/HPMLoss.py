@@ -1,7 +1,7 @@
 from .PDELoss import PDELoss
 
 class HPMLoss(PDELoss):
-    def __init__(self, dataset, hpm_input, hpm_model, norm='L2', weight=1.):
+    def __init__(self, dataset, name, hpm_input, hpm_model, norm='L2', weight=1.):
         """
         Constructor of the HPM loss
 
@@ -13,7 +13,7 @@ class HPMLoss(PDELoss):
             norm: Norm used for calculation PDE loss
             weight: Weighting for the loss term
         """
-        super(HPMLoss, self).__init__(dataset, None, norm, weight)
+        super(HPMLoss, self).__init__(dataset, None, name, norm='L2', weight=1.)
         self.hpm_input = hpm_input
         self.hpm_model = hpm_model
 
