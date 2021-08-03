@@ -330,23 +330,22 @@ class PINN(nn.Module):
         return pinn_loss
 
     def write_checkpoint(self, checkpoint_path, epoch, pretraining, minimum_pinn_loss, optimizer):
-        checkpoint =  {}
+        checkpoint = {}
         checkpoint["epoch"] = epoch
         checkpoint["pretraining"] = pretraining
         checkpoint["minimum_pinn_loss"] = minimum_pinn_loss
         checkpoint["optimizer"] = optimizer.state_dict()
-        checkpoint["weight_"+ self.initial_condition.name] = self.initial_condition.weight
+        checkpoint["weight_" + self.initial_condition.name] = self.initial_condition.weight
         checkpoint["weight_" + self.pde_loss.name] = self.initial_condition.weight
         checkpoint["pinn_model"] = self.model.state_dict()
         if isinstance(self.boundary_condition, list):
             for bc in self.boundary_condition:
-                checkpoint["weight_"+ bc.name] = bc.weight
+                checkpoint["weight_" + bc.name] = bc.weight
         else:
             checkpoint["weight_" + self.boundary_condition.name] = self.boundary_condition.weight
 
         if self.is_hpm:
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
-        checkpoint_path = checkpoint_path + '_' + str(epoch)
         torch.save(checkpoint, checkpoint_path)
 
 
