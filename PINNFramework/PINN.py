@@ -29,7 +29,7 @@ class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
                  pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition,
-                 use_gpu=True, use_horovod=False,dataset_mode='min'):
+                 use_gpu=True, use_horovod=False, dataset_mode='min'):
         """
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
@@ -437,6 +437,7 @@ class PINN(nn.Module):
                 def closure():
                     lbfgs_optim.zero_grad()
                     pinn_loss = self.pinn_loss(training_data)
+                    print(pinn_loss)
                     pinn_loss.backward()
                     return pinn_loss
 
@@ -565,6 +566,7 @@ class PINN(nn.Module):
                     self.write_checkpoint(checkpoint_path, epoch, False, minimum_pinn_loss, optim)
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)
+            pinn_loss = self.pinn_loss(training_data, do_annealing)
             print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch+1, epochs))
             if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cycle) and save_model:
                 self.save_model(pinn_path, hpm_path)
