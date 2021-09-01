@@ -1,7 +1,6 @@
 from .mlp import MLP
-from .multimodelhpm import MultiModelHPM
-from .matrix_hpm import MatrixHPM
+from .pennesmodel import PennesHPM
 
 __all__ = [
-    'MLP', 'MultiModelHPM', 'MatrixHPM'
+    'MLP', 'PennesHPM' 
 ]
