@@ -139,9 +139,6 @@ class InitialConditionDataset(Dataset):
         self.x_values = np.array(self.x_values).reshape(-1)
         self.y_values = np.array(self.y_values).reshape(-1)
         self.t_values = np.array(self.t_values).reshape(-1)
-        # Save grid coordinates of the data points
-        self.x_indices = self.x_values.copy()
-        self.y_indices = self.y_values.copy()
         # Sometimes we are loading less files than we specified by batch_size + num_batches
         # => adapt num_batches to real number of batches for avoiding empty batches
         self.batch_size = batch_size
@@ -160,7 +157,6 @@ class InitialConditionDataset(Dataset):
             self.y_values.max(),
             self.t_values.max()]
         dtype1 = torch.FloatTensor
-        dtype2 = torch.LongTensor     
         # Generate random permutation idx
         np.random.seed(1234)
         rand_idx = np.random.permutation(self.x_values.shape[0])
@@ -169,15 +165,11 @@ class InitialConditionDataset(Dataset):
         self.y_values = self.y_values[rand_idx]
         self.t_values = self.t_values[rand_idx]
         self.u_values = self.u_values[rand_idx]       
-        self.x_indices = self.x_indices[rand_idx]
-        self.y_indices = self.y_indices[rand_idx]
         # Slice data for training and convert to torch tensors
         self.x_values = dtype1(self.x_values[:num_samples])
         self.y_values = dtype1(self.y_values[:num_samples])
         self.t_values = dtype1(self.t_values[:num_samples])
         self.u_values = dtype1(self.u_values[:num_samples])
-        self.x_indices = dtype2(self.x_indices[:num_samples])
-        self.y_indices = dtype2(self.y_indices[:num_samples])
         self.low_bound = dtype1(self.low_bound)
         self.up_bound = dtype1(self.up_bound)
         
@@ -193,7 +185,7 @@ class InitialConditionDataset(Dataset):
         Args:
             index(int): index of the mini-batch.
         Returns:
-            X: spatio-temporal coordinates x,y,t and grid coordinates x_indices, y_indices concatenated.
+            X: spatio-temporal coordinates x,y,t concatenated.
             u: real-value function of spatio-temporal coordinates.
         """
         # Generate batch for inital solution
@@ -205,11 +197,7 @@ class InitialConditionDataset(Dataset):
             self.t_values[index * self.batch_size: (index + 1) * self.batch_size])
         u_values = (
             self.u_values[index * self.batch_size: (index + 1) * self.batch_size])
-        x_indices = (
-            self.x_indices[index * self.batch_size: (index + 1) * self.batch_size])
-        y_indices = (
-            self.y_indices[index * self.batch_size: (index + 1) * self.batch_size])
-        return torch.stack([x_values, y_values, t_values, x_indices, y_indices], 1),u_values.reshape(-1,1)
+        return torch.stack([x_values, y_values, t_values], 1), u_values.reshape(-1,1)
 
 class PDEDataset(Dataset):
     """
@@ -243,9 +231,6 @@ class PDEDataset(Dataset):
         self.x_values = np.array(self.x_values).reshape(-1)
         self.y_values = np.array(self.y_values).reshape(-1)
         self.t_values = np.array(self.t_values).reshape(-1)
-        # Save grid coordinates of the data points
-        self.x_indices = self.x_values.copy()
-        self.y_indices = self.y_values.copy()
         # Sometimes we are loading less files than we specified by batch_size + num_batches
         # => adapt num_batches to real number of batches for avoiding empty batches
         self.batch_size = batch_size
@@ -255,7 +240,6 @@ class PDEDataset(Dataset):
         self.x_values = self.x_values * data_info["spat_res"]
         self.y_values = self.y_values * data_info["spat_res"]
         dtype1 = torch.FloatTensor
-        dtype2 = torch.LongTensor
         # Slice data for training and convert to torch tensors
         np.random.seed(1234)
         rand_idx = np.random.permutation(self.x_values.shape[0])
@@ -263,14 +247,10 @@ class PDEDataset(Dataset):
         self.x_values = self.x_values[rand_idx]
         self.y_values = self.y_values[rand_idx]
         self.t_values = self.t_values[rand_idx]     
-        self.x_indices = self.x_indices[rand_idx]
-        self.y_indices = self.y_indices[rand_idx]
         # Slice data for training and convert to torch tensors
         self.x_values = dtype1(self.x_values[:num_samples])
         self.y_values = dtype1(self.y_values[:num_samples])
         self.t_values = dtype1(self.t_values[:num_samples])       
-        self.x_indices = dtype2(self.x_indices[:num_samples])
-        self.y_indices = dtype2(self.y_indices[:num_samples])
 
     def __len__(self):
         """
@@ -284,7 +264,7 @@ class PDEDataset(Dataset):
         Args:
             index(int): index of the mini-batch.
         Returns:
-            X: spatio-temporal coordinates x,y,t and grid coordinates x_indices, y_indices concatenated.
+            X: spatio-temporal coordinates x,y,t concatenated.
         """
         # Generate batch with residual points
         x_values = (
@@ -293,20 +273,16 @@ class PDEDataset(Dataset):
             self.y_values[index * self.batch_size: (index + 1) * self.batch_size])
         t_values = (
             self.t_values[index * self.batch_size: (index + 1) * self.batch_size])
-        x_indices = (
-            self.x_indices[index * self.batch_size: (index + 1) * self.batch_size])
-        y_indices = (
-            self.y_indices[index * self.batch_size: (index + 1) * self.batch_size])
-        return torch.stack([x_values, y_values, t_values, x_indices, y_indices], 1)
+        return torch.stack([x_values, y_values, t_values], 1)
 
 def derivatives(x_values, u_values):
     """
     Create an input for the HPM model.
     Args:
-        x_values (torch tensor): concatenated spatio-temporal and grid coordinaties (x,y,t,x_indices,y_indices).
+        x_values (torch tensor): concatenated spatio-temporal and grid coordinaties (x,y,t).
         u_values (torch tensor): real-value function to differentiate.
     Returns:
-        x, y, t, x_indices, y_indices, u, d2u/dx2, d2u/dy2, du/dt concatenated.
+        x, y, t, u, d2u/dx2, d2u/dy2, du/dt concatenated.
     """
     # Save input in variables is necessary for gradient calculation
     x_values.requires_grad = True
@@ -318,7 +294,7 @@ def derivatives(x_values, u_values):
         x_values,
         create_graph=True,
         grad_outputs=grads)[0]
-    #du_dx_values = [du/dx, du/dy, du/dt,du/d(x_indices), du/d(y_indices)]
+    #du_dx_values = [du/dx, du/dy, du/dt]
     u_x_values = du_dx_values[:, 0].reshape(u_values.shape)
     u_y_values = du_dx_values[:, 1].reshape(u_values.shape)
     u_t_values = du_dx_values[:, 2].reshape(u_values.shape)
@@ -326,16 +302,14 @@ def derivatives(x_values, u_values):
         u_x_values, x_values, create_graph=True, grad_outputs=grads)[0]
     u_yy_values = torch.autograd.grad(
         u_y_values, x_values, create_graph=True, grad_outputs=grads)[0]
-    #u_xx = [u_xx, u_xy, u_xt, u_x(x_indices), u_x(y_indices)]
+    #u_xx = [u_xx, u_xy, u_xt]
     u_xx_values = u_xx_values[:, 0].reshape(u_values.shape)
-    #u_yy = [u_yx, u_yy, u_yt, u_y(x_indices), u_y(y_indices)]
+    #u_yy = [u_yx, u_yy, u_yt]
     u_yy_values = u_yy_values[:, 1].reshape(u_values.shape)
-    x_values, y_values, t_values, x_indices, y_indices = x_values.T
-                          
+    x_values, y_values, t_values = x_values.T
+    
     x_values = x_values.reshape(u_values.shape)
     y_values = y_values.reshape(u_values.shape)
     t_values = t_values.reshape(u_values.shape)
-    x_indices = x_indices.reshape(u_values.shape)
-    y_indices = y_indices.reshape(u_values.shape)
-    return torch.stack([x_values, y_values, t_values, x_indices, y_indices, u_values, u_x_values, u_y_values,
+    return torch.stack([x_values, y_values, t_values, u_values, u_x_values, u_y_values,
                         u_xx_values, u_yy_values, u_t_values], 1).squeeze()
