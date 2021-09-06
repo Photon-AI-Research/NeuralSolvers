@@ -437,7 +437,6 @@ class PINN(nn.Module):
                 def closure():
                     lbfgs_optim.zero_grad()
                     pinn_loss = self.pinn_loss(training_data)
-                    print(pinn_loss)
                     pinn_loss.backward()
                     return pinn_loss
 
