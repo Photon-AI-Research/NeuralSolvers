@@ -8,6 +8,7 @@ class PDELoss(LossTerm):
     def __init__(self, dataset, pde, name, norm='L2', weight=1.):
         """
         Constructor of the PDE Loss
+
         Args:
             dataset (torch.utils.Dataset): dataset that provides the residual points
             pde (function): function that represents residual of the PDE
@@ -21,6 +22,7 @@ class PDELoss(LossTerm):
     def __call__(self, x: Tensor, model: Module, **kwargs):
         """
         Call function of the PDE loss. Calculates the norm of the PDE residual
+
         x: residual points
         model: model that predicts the solution of the PDE
         """

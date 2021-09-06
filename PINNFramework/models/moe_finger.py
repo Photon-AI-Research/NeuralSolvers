@@ -13,7 +13,8 @@ import torch.nn as nn
 from torch.distributions.normal import Normal
 import numpy as np
 import torch.nn.functional as F
-from PINNFramework.models.mlp import MLP    
+from PINNFramework.models import FingerNet
+from PINNFramework.models import MLP
 
 class SparseDispatcher(object):
     """Helper for implementing a mixture of experts.
@@ -46,9 +47,9 @@ class SparseDispatcher(object):
     `Tensor`s for expert i only the batch elements for which `gates[b, i] > 0`.
     """
 
-    def __init__(self, num_experts, gates, device = "cpu"):
+    def __init__(self, num_experts, gates, use_gpu=False):
         """Create a SparseDispatcher."""
-        self.device = device
+        self.use_gpu=use_gpu
         self._gates = gates
         self._num_experts = num_experts
         # sort experts
@@ -58,7 +59,11 @@ class SparseDispatcher(object):
         # get according batch index for each expert
         self._batch_index = sorted_experts[index_sorted_experts[:, 1],0]
         # calculate num samples that each expert gets
-        self._part_sizes = list((gates > 0).sum(0).to(device))#.cuda())
+        if self.use_gpu:
+            self._part_sizes = list((gates > 0).sum(0).cuda())
+        else:
+            self._part_sizes = list((gates > 0).sum(0))
+
         # expand gates to match with self._batch_index
         gates_exp = gates[self._batch_index.flatten()]
         self._nonzero_gates = torch.gather(gates_exp, 1, self._expert_index)
@@ -99,7 +104,9 @@ class SparseDispatcher(object):
 
         if multiply_by_gates:
             stitched = stitched.mul(self._nonzero_gates)
-        zeros = torch.zeros(self._gates.size(0), expert_out[-1].size(1), requires_grad=True).to(self.device)#.cuda()
+        zeros = torch.zeros(self._gates.size(0), expert_out[-1].size(1), requires_grad=True)
+        if self.use_gpu:
+            zeros = zeros.cuda()
         # combine samples that have been processed by the same k experts
         combined = zeros.index_add(0, self._batch_index, stitched.float())
         # add eps to all zero values in order to avoid nans when going back to log space
@@ -117,9 +124,6 @@ class SparseDispatcher(object):
         # split nonzero gates for each expert
         return torch.split(self._nonzero_gates, self._part_sizes, dim=0)
 
-
-
-
 class MoE(nn.Module):
 
     """Call a Sparsely gated mixture of experts layer with 1-layer Feed-Forward networks as experts.
@@ -132,30 +136,49 @@ class MoE(nn.Module):
     k: an integer - how many experts to use for each batch element
     """
 
-    def __init__(self, input_size, output_size, num_experts, hidden_size, num_hidden, activation=torch.tanh, non_linear=False,noisy_gating=False, k=4, device = "cpu"):
+    def __init__(self, input_size, output_size, num_experts,
+                 hidden_size, num_hidden, lb, ub, activation=torch.tanh,
+                 non_linear=False, noisy_gating=False, k=1, scaling_factor=1.):
         super(MoE, self).__init__()
         self.noisy_gating = noisy_gating
         self.num_experts = num_experts
         self.output_size = output_size
         self.input_size = input_size
         self.hidden_size = hidden_size
-        self.device = device
+        self.use_gpu = False
         self.k = k
         self.loss = 0
+        self.lb = torch.Tensor(lb).float()
+        self.ub = torch.Tensor(ub).float()
+        self.scaling_factor = scaling_factor
 
         # instantiate experts
-        self.experts = nn.ModuleList([MLP(input_size, output_size, hidden_size, num_hidden, activation) for i in range(self.num_experts)])
-        
+        # normalization of the MLPs is disabled cause the Gating Network performs the normalization
+        self.experts = nn.ModuleList([
+            FingerNet(lb, ub, hidden_size, num_hidden, activation, False)
+            for _ in range(self.num_experts)
+        ])
+
         self.w_gate = nn.Parameter(torch.randn(input_size, num_experts), requires_grad=True)
         self.w_noise = nn.Parameter(torch.zeros(input_size, num_experts), requires_grad=True)
 
         self.softplus = nn.Softplus()
         self.softmax = nn.Softmax(1)
-        self.normal = Normal(torch.tensor([0.0]).to(self.device), torch.tensor([1.0]))
+        if self.use_gpu:
+            self.normal = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
+        else:
+            self.normal = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
         
         self.non_linear = non_linear
         if self.non_linear:
-            self.gating_network = MLP(input_size,num_experts,num_experts*2,1,activation=F.relu)
+            self.gating_network = MLP(input_size,
+                                      num_experts,
+                                      num_experts*2,
+                                      1,
+                                      lb,
+                                      ub,
+                                      activation=F.relu,
+                                      normalize=False)
 
         assert(self.k <= self.num_experts)
 
@@ -186,9 +209,6 @@ class MoE(nn.Module):
         """
         return (gates > 0).sum(0)
 
-
-
-
     def _prob_in_top_k(self, clean_values, noisy_values, noise_stddev, noisy_top_values):
         """Helper function to NoisyTopKGating.
         Computes the probability that value is in top k, given different random noise.
@@ -210,11 +230,18 @@ class MoE(nn.Module):
         batch = clean_values.size(0)
         m = noisy_top_values.size(1)
         top_values_flat = noisy_top_values.flatten()
-        threshold_positions_if_in = (torch.arange(batch) * m + self.k).to(self.device)#.cuda()
+        if self.use_gpu:
+            threshold_positions_if_in = (torch.arange(batch) * m + self.k).cuda()
+        else:
+            threshold_positions_if_in = (torch.arange(batch) * m + self.k).cuda()
         threshold_if_in = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_in), 1)
         is_in = torch.gt(noisy_values, threshold_if_in)
-        threshold_positions_if_out = (threshold_positions_if_in - 1).to(self.device)#.cuda()
-        threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat,0 , threshold_positions_if_out), 1)
+        if self.use_gpu:
+            threshold_positions_if_out = (threshold_positions_if_in - 1).cuda()
+        else:
+            threshold_positions_if_out = (threshold_positions_if_in - 1).cuda()
+
+        threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
         # is each value currently in the top k.
         prob_if_in = self.normal.cdf((clean_values - threshold_if_in)/noise_stddev)
         prob_if_out = self.normal.cdf((clean_values - threshold_if_out)/noise_stddev)
@@ -243,7 +270,7 @@ class MoE(nn.Module):
             if(self.k > 1):
                 raw_noise_stddev = self.softplus(raw_noise_stddev)
             noise_stddev = ((raw_noise_stddev + noise_epsilon) * train)
-            noisy_logits = clean_logits + ( torch.randn_like(clean_logits) * noise_stddev)
+            noisy_logits = clean_logits + (torch.randn_like(clean_logits) * noise_stddev)
             logits = noisy_logits
         else:
             logits = clean_logits
@@ -269,7 +296,6 @@ class MoE(nn.Module):
     def get_utilisation_loss(self):
         return self.loss
     
-
     def forward(self, x, train=True, loss_coef=1e-2):
         """Args:
         x: tensor shape [batch_size, input_size]
@@ -281,18 +307,44 @@ class MoE(nn.Module):
         training loss of the model.  The backpropagation of this loss
         encourages all experts to be approximately equally used across a batch.
         """
+        # normalization is performed here for better convergence of the gating network
+        x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
+
         gates, load = self.noisy_top_k_gating(x, train)
         # calculate importance loss
         importance = gates.sum(0)
         #
         loss = self.cv_squared(importance) + self.cv_squared(load)
         loss *= loss_coef
-        
         self.loss = loss
 
-        dispatcher = SparseDispatcher(self.num_experts, gates)
+        dispatcher = SparseDispatcher(self.num_experts, gates, self.use_gpu)
         expert_inputs = dispatcher.dispatch(x)
         gates = dispatcher.expert_to_gates()
-        expert_outputs = [self.experts[i](expert_inputs[i].unsqueeze(1)) for i in range(self.num_experts)]
+        expert_outputs = []
+        for i in range(self.num_experts):
+            if expert_inputs[i] is not None:
+                expert_outputs.append(self.experts[i](expert_inputs[i]))
         y = dispatcher.combine(expert_outputs)
-        return y #, loss
+        return self.scaling_factor * y
+
+    def cuda(self):
+        super(MoE, self).cuda()
+        self.use_gpu = True
+        #iterate over all experts and move them to gpu
+        for i in range(self.num_experts):
+            self.experts[i].cuda()
+        self.lb = self.lb.cuda()
+        self.ub = self.ub.cuda()
+        if self.non_linear:
+            self.gating_network.cuda()
+
+    def cpu(self):
+        super(MoE, self).cpu()
+        self.use_gpu = False
+        for i in range(self.num_experts):
+            self.experts[i].cpu()
+        self.lb = self.lb.cpu()
+        self.ub = self.ub.cpu()
+        if self.non_linear:
+            self.gating_network.cpu()

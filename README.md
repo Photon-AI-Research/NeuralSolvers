@@ -1,12 +1,37 @@
-# NeuralSolvers
-Neural network based solvers for partial differential equations.
+# Neural Solvers :milky_way:
 
+<figure align="center">
+<img src="images/1D_Schroedinger_training.gif" width="50%" />
+</figure>
+
+# Introduction
+Neural Solvers are neural network based solver for partial differential equations and inverse problems. 
+The framework implements the physics-informed neural network approach on scale. Physically informed neural networks
+allow strong scaling by design. Therefore, we have developed a framework that uses data parallelism to accelerate the training of 
+physically informed neural networks significantly. To implement data parallelism, we use the <a href="https://github.com/horovod/horovod">Horovod</a> framework, which provides near-ideal speedup on multi-GPU regimes.  
+
+<figure align="center">
+<img src="images/scalability.png" width="50%" />
+</figure>
+
+More detais about our framework you can find in our recent publication: 
 ```
 P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
-Large-scale Neural Solvers for Partial Differential Equations.
+Large-scale Neural Solvers for Partial Differential Equations (2020).
 
 ```
 
+
+
+## Implemented Approaches:
+```
+Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis.
+Physics Informed Deep Learning (Part I): Data-driven Solutions of Nonlinear Partial Differential Equations.(2017).
+```
+```
+Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis. 
+Physics Informed Deep Learning (Part II): Data-driven Discovery of Nonlinear Partial Differential Equations.(2017).
+```
 
 ## Requirements
 
@@ -159,3 +184,10 @@ hpm_loss = pf.HPMLoss(pde_dataset,derivatives,hpm_model)
 pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initial_condition=initial_condition, boundary_condition = [], use_gpu=True)
 
 ```
+## Horovod Support 
+You can activate horovod support by setting the `use_horovod` flag in the constructor of the pinn
+```python
+pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True, use_horovod=True)
+```
+
+Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported with horovod activated. Another restriction is that the length or your dataset should not be smaller than the number of used GPUs for horovod. 

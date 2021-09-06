@@ -9,7 +9,6 @@ from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, Neuma
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
-from .WandB_Logger import WandbLogger
 from torch.autograd import grad as grad
 from PINNFramework.callbacks import CallbackList
 
@@ -35,6 +34,7 @@ class PINN(nn.Module):
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
         condition(BC) and the PDE and a dataset which represents the bounded domain U.
+
         Args: 
             model : is the model which is trained to represent the underlying PDE
             input_dimension : represents the dimension of the input vector x
@@ -45,6 +45,9 @@ class PINN(nn.Module):
             of the BoundaryCondition class
             use_gpu: enables gpu usage
             use_horovod: enables horovod support
+            dataset_mode: defines the behavior of the joined dataset. The 'min'-mode sets the length of the dataset to
+            the minimum of the
+
         """
         super(PINN, self).__init__()
         # checking if the model is a torch module more model checking should be possible
@@ -95,7 +98,8 @@ class PINN(nn.Module):
 
         if isinstance(pde_loss, HPMLoss):
             self.is_hpm = True
-            self.pde_loss.hpm_model.cuda()
+            if self.use_gpu:
+                self.pde_loss.hpm_model.cuda()
 
         if isinstance(initial_condition, InitialCondition):
             self.initial_condition = initial_condition
@@ -140,13 +144,14 @@ class PINN(nn.Module):
 
     def forward(self, x):
         """
-        Predicting the solution at given position x
+        Predicting the solution at given pos
         """
         return self.model(x)
 
     def save_model(self, pinn_path, hpm_path=None):
         """
         Saves the state dict of the models. Differs between HPM and Model
+
         Args:
             pinn_path: path where the pinn get stored
             hpm_path: path where the HPM get stored
@@ -162,6 +167,7 @@ class PINN(nn.Module):
     def load_model(self, pinn_path, hpm_path=None):
         """
         Load the state dict of the models. Differs between HPM and Model
+
         Args:
             pinn_path: path from where the pinn get loaded
             hpm_path: path from where the HPM get loaded
@@ -177,6 +183,7 @@ class PINN(nn.Module):
     def calculate_boundary_condition(self, boundary_condition: BoundaryCondition, training_data):
         """
         This function classifies the boundary condition and calculates the satisfaction
+
         Args:
             boundary_condition (BoundaryCondition) : boundary condition to be calculated
             training_data: training data used for evaluation
@@ -244,6 +251,7 @@ class PINN(nn.Module):
         """
         Function for calculating the PINN loss. The PINN Loss is a weighted sum of losses for initial and boundary
         condition and the residual of the PDE
+
         Args:
             training_data (Dictionary): Training Data for calculating the PINN loss in form of ta dictionary. The
             dictionary holds the training data for initial condition at the key "Initial_Condition" training data for
@@ -263,8 +271,6 @@ class PINN(nn.Module):
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
 
         # ============== INITIAL CONDITION ============== "
-        # commented since needless when training a HPM model
-        """
         if type(training_data[self.initial_condition.name]) is list:
             # initial condition loss
             if len(training_data[self.initial_condition.name]) == 2:
@@ -287,7 +293,7 @@ class PINN(nn.Module):
         else:
             raise ValueError("Training Data for initial condition is a tuple (x,y) with x the input coordinates"
                              " and ground truth values y")
-        """
+
         # ============== BOUNDARY CONDITION ============== "
         if not self.is_hpm:
             if isinstance(self.boundary_condition, list):
@@ -319,41 +325,85 @@ class PINN(nn.Module):
                 self.loss_log["model_loss_pinn"] = self.loss_log["model_loss_pinn"] + self.model.loss
         if self.is_hpm:
             if hasattr(self.pde_loss.hpm_model, 'loss'):
-                pinn_loss = pinn_loss + self.model.loss
+                pinn_loss = pinn_loss + self.pde_loss.hpm_model.loss
                 if self.rank == 0:
-                    self.loss_log["model_loss_hpm"] = self.loss_log["model_loss_hpm"] + self.model.loss
+                    self.loss_log["model_loss_hpm"] = self.loss_log["model_loss_hpm"] + self.pde_loss.hpm_model.loss
 
         return pinn_loss
 
     def write_checkpoint(self, checkpoint_path, epoch, pretraining, minimum_pinn_loss, optimizer):
-        checkpoint =  {}
+        checkpoint = {}
         checkpoint["epoch"] = epoch
         checkpoint["pretraining"] = pretraining
         checkpoint["minimum_pinn_loss"] = minimum_pinn_loss
         checkpoint["optimizer"] = optimizer.state_dict()
-        checkpoint["weight_"+ self.initial_condition.name] = self.initial_condition.weight
+        checkpoint["weight_" + self.initial_condition.name] = self.initial_condition.weight
         checkpoint["weight_" + self.pde_loss.name] = self.initial_condition.weight
         checkpoint["pinn_model"] = self.model.state_dict()
         if isinstance(self.boundary_condition, list):
             for bc in self.boundary_condition:
-                checkpoint["weight_"+ bc.name] = bc.weight
+                checkpoint["weight_" + bc.name] = bc.weight
         else:
             checkpoint["weight_" + self.boundary_condition.name] = self.boundary_condition.weight
 
         if self.is_hpm:
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
-        checkpoint_path = checkpoint_path + '_' + str(epoch)
         torch.save(checkpoint, checkpoint_path)
-        
-    def init_optim(self, optimizer, learning_rate, pretraining=False, lbfgs_finetuning=False):
-        if isinstance(self.pde_loss, HPMLoss):
-            if pretraining:
-                params = self.model.parameters()
-                named_parameters = self.model.named_parameters()
-            else: 
-                params = self.pde_loss.hpm_model.parameters()
-                named_parameters = self.pde_loss.hpm_model.named_parameters()
 
+
+
+    def fit(self,
+            epochs,
+            checkpoint_path=None,
+            restart=False,
+            optimizer='Adam',
+            learning_rate=1e-3,
+            pretraining=False,
+            epochs_pt=100,
+            lbfgs_finetuning=True,
+            writing_cycle=30,
+            writing_cycle_pt=10,
+            save_model=True,
+            pinn_path='best_model_pinn.pt',
+            hpm_path='best_model_hpm.pt',
+            logger=None,
+            activate_annealing=False,
+            annealing_cycle=100,
+            callbacks=None):
+        """
+        Function for optimizing the parameters of the PINN-Model
+
+        Args:
+            epochs (int) : number of epochs used for training
+            optimizer (String, torch.optim.Optimizer) : Optimizer used for training. At the moment only ADAM and LBFGS
+            are supported by string command. It is also possible to give instances of torch optimizers as a parameter
+            learning_rate: The learning rate of the optimizer
+            pretraining: Activates seperate training on the initial condition at the beginning
+            epochs_pt: defines the number of epochs for the pretraining
+            lbfgs_finetuning: Enables LBFGS finetuning after main training
+            writing_cylcle: defines the cylcus of model writing
+            save_model: enables or disables checkpointing
+            pinn_path: defines the path where the pinn get stored
+            hpm_path: defines the path where the hpm get stored
+            logger (Logger): tracks the convergence of all loss terms
+            activate_annealing (Boolean): enables annealing
+            annealing_cycle (int): defines the periodicity of using annealing
+            callbacks (CallbackList): is a list of callbacks which are called at the end of a writing cycle. Can be used
+            for different purposes e.g. early stopping, visualization, model state logging etc.
+            checkpoint_path (string) : path to the checkpoint
+            restart (integer) : defines if checkpoint will be used (False) or will be overwritten (True)
+
+
+        """
+        # checking if callbacks are a instance of CallbackList
+        if callbacks is not None:
+            if not isinstance(callbacks, CallbackList):
+                raise ValueError("Callbacks has to be a instance of CallbackList but type {} was found".
+                                 format(type(callbacks)))
+
+        if isinstance(self.pde_loss, HPMLoss):
+            params = list(self.model.parameters()) + list(self.pde_loss.hpm_model.parameters())
+            named_parameters = chain(self.model.named_parameters(), self.pde_loss.hpm_model.named_parameters())
             if self.use_horovod and lbfgs_finetuning:
                 raise ValueError("LBFGS Finetuning is not possible with horovod")
             if optimizer == 'Adam':
@@ -391,68 +441,15 @@ class PINN(nn.Module):
                     pinn_loss = self.pinn_loss(training_data)
                     pinn_loss.backward()
                     return pinn_loss
-                
-            if self.use_horovod:
-                optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
-                hvd.broadcast_optimizer_state(optim, root_rank=0)
-                
-        return optim, named_parameters
 
-    def fit(self,
-            epochs,
-            checkpoint_path=None,
-            restart=False,
-            optimizer='Adam',
-            learning_rate=1e-3,
-            pretraining=True,
-            epochs_pt=50,
-            lbfgs_finetuning=True,
-            writing_cylcle=1,
-            writing_cycle_pt=1,
-            save_model=True,
-            pinn_path='best_model_pinn.pt',
-            hpm_path='best_model_hpm.pt',
-            logger=None,
-            activate_annealing=False,
-            annealing_cycle=100,
-            callbacks=None,
-            args=None):
-        """
-        Function for optimizing the parameters of the PINN-Model
-        Args:
-            epochs (int) : number of epochs used for training
-            optimizer (String, torch.optim.Optimizer) : Optimizer used for training. At the moment only ADAM and LBFGS
-            are supported by string command. It is also possible to give instances of torch optimizers as a parameter
-            learning_rate: The learning rate of the optimizer
-            pretraining: Activates seperate training on the initial condition at the beginning
-            epochs_pt: defines the number of epochs for the pretraining
-            lbfgs_finetuning: Enables LBFGS finetuning after main training
-            writing_cylcle: defines the cylcus of model writing
-            save_model: enables or disables checkpointing
-            pinn_path: defines the path where the pinn get stored
-            hpm_path: defines the path where the hpm get stored
-            logger (Logger): tracks the convergence of all loss terms
-            activate_annealing (Boolean): enables annealing
-            annealing_cycle (int): defines the periodicity of using annealing
-            callbacks (CallbackList): is a list of callbacks which are called at the end of a writing cycle. Can be used
-            for different purposes e.g. early stopping, visualization, model state logging etc.
-            checkpoint_path (string) : path to the checkpoint
-            restart (integer) : defines if checkpoint will be used (False) or will be overwritten (True)
-        """
-        # checking if callbacks are a instance of CallbackList
-        if callbacks is not None:
-            if not isinstance(callbacks, CallbackList):
-                raise ValueError("Callbacks has to be a instance of CallbackList but type {} was found".
-                                 format(type(callbacks)))
-                       
         minimum_pinn_loss = float("inf")
-        minimum_ic_loss = float("inf")
         if self.use_horovod:
             # Partition dataset among workers using DistributedSampler
             train_sampler = torch.utils.data.distributed.DistributedSampler(
                 self.dataset, num_replicas=hvd.size(), rank=hvd.rank()
             )
             data_loader = DataLoader(self.dataset, batch_size=1, sampler=train_sampler, worker_init_fn=worker_init_fn)
+            optim = hvd.DistributedOptimizer(optim, named_parameters=named_parameters)
             if pretraining:
                 train_sampler_pt = torch.utils.data.distributed.DistributedSampler(
                     self.initial_condition.dataset, num_replicas=hvd.size(), rank=hvd.rank()
@@ -464,12 +461,13 @@ class PINN(nn.Module):
             # Broadcast parameters from rank 0 to all other processes.
             hvd.broadcast_parameters(self.model.state_dict(), root_rank=0)
             if isinstance(self.pde_loss, HPMLoss):
-                hvd.broadcast_parameters(self.pde_loss.hpm_model.state_dict(), root_rank=0)            
+                hvd.broadcast_parameters(self.pde_loss.hpm_model.state_dict(), root_rank=0)
+            hvd.broadcast_optimizer_state(optim, root_rank=0)
 
         else:
             data_loader = DataLoader(self.dataset, batch_size=1, worker_init_fn=worker_init_fn)
             data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None, worker_init_fn=worker_init_fn)
-        
+
         start_epoch = 0
 
         # load checkpoint routine if a checkpoint path is set and its allowed to not overwrite the checkpoint
@@ -495,48 +493,25 @@ class PINN(nn.Module):
             if self.is_hpm:
                 self.pde_loss.hpm_model.load_state_dict(checkpoint["hpm_model"])
 
+            optim.load_state_dict(checkpoint['optimizer'])
             minimum_pinn_loss = checkpoint["minimum_pinn_loss"]
-            if not self.rank:
-                print("Checkpoint Loaded", flush=True)
+            print("Checkpoint Loaded", flush=True)
         else:
-            if not self.rank:
-                print("Checkpoint not loaded", flush=True)
-            
-        if not self.rank:
-            if args.use_wandb:
-                logger = WandbLogger('thermal_hpm', args)
-            print("===== Pretraining =====")
-            
+            print("Checkpoint not loaded", flush=True)
+
+        print("===== Pretraining =====")
         if pretraining:
-            # initialize an optimizer working on IC model only
-            optim, named_parameters = self.init_optim(optimizer, learning_rate, pretraining)
             for epoch in range(start_epoch, epochs_pt):
-                batch_counter = 0.
-                ic_loss_sum = 0.
                 for x, y in data_loader_pt:
                     optim.zero_grad()
                     ic_loss = self.initial_condition(model=self.model, x=x.type(self.dtype), gt_y=y.type(self.dtype))
                     ic_loss.backward()
-                    ic_loss_sum = ic_loss_sum + ic_loss
                     optim.step()
-                    batch_counter += 1
+                if not self.rank and not (epoch + 1) % writing_cycle_pt and checkpoint_path is not None:
+                    self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
                 if not self.rank:
-                    if not (epoch + 1) % writing_cycle_pt and checkpoint_path is not None:
-                        self.write_checkpoint(checkpoint_path, epoch, True, minimum_ic_loss, optim)
                     print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch+1, epochs_pt))
-                    if logger is not None and not (epoch+1) % writing_cylcle:
-                        logger.log_scalar(scalar=ic_loss_sum / batch_counter, name=" IC Loss", epoch=epoch)
-                    if (ic_loss_sum / batch_counter < minimum_ic_loss) and save_model:
-                        self.save_model(pinn_path, hpm_path)
-                        minimum_ic_loss = ic_loss_sum / batch_counter
-                        
-        if not self.rank:
-            self.save_model(pinn_path, hpm_path)
-            print("===== Main training =====")
-         
-        # initialize an optimizer working on HPM model only
-        optim, named_parameters = self.init_optim(optimizer, learning_rate)
-            
+        print("===== Main training =====")
         for epoch in range(start_epoch, epochs):
             # for parallel training the rank should also define the seed
             np.random.seed(42 + epoch + self.rank)
@@ -554,7 +529,7 @@ class PINN(nn.Module):
 
             if not self.rank:
                 print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch+1, epochs), flush=True)
-                if logger is not None and not (epoch+1) % writing_cylcle:
+                if logger is not None and not (epoch+1) % writing_cycle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
                     logger.log_scalar(scalar=sum(self.loss_log.values())/batch_counter,
                                       name=" Non-Weighted PINN Loss", epoch=epoch+1)
@@ -576,7 +551,7 @@ class PINN(nn.Module):
                             logger.log_scalar(scalar=self.boundary_condition.weight,
                                               name=self.boundary_condition.name + "_weight",
                                               epoch=epoch+1)
-                if callbacks is not None and not (epoch+1) % writing_cylcle:
+                if callbacks is not None and not (epoch+1) % writing_cycle:
                     callbacks(epoch=epoch+1)
                 # saving routine
                 if (pinn_loss_sum / batch_counter < minimum_pinn_loss) and save_model:
@@ -588,10 +563,11 @@ class PINN(nn.Module):
                     self.loss_log[key] = float(0)
 
                 # writing checkpoint
-                if not (epoch + 1) % writing_cylcle and checkpoint_path is not None:
+                if not (epoch + 1) % writing_cycle and checkpoint_path is not None:
                     self.write_checkpoint(checkpoint_path, epoch, False, minimum_pinn_loss, optim)
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)
             print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch+1, epochs))
-            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cylcle) and save_model:
+            if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cycle) and save_model:
                 self.save_model(pinn_path, hpm_path)
+

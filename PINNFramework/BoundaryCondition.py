@@ -28,6 +28,7 @@ class DirichletBC(BoundaryCondition):
 class NeumannBC(BoundaryCondition):
     """
     Neumann boundary conditions: dy/dn(x) = func(x).
+
     With dy/dn(x) = <∇y,n>
     """
 
@@ -134,6 +135,7 @@ class TimeDerivativeBC(BoundaryCondition):
     """
     For hyperbolic systems it may be needed to initialize the time derivative. This boundary condition intializes
     the time derivative in a data driven way.
+
     """
     def __init__(self, dataset, name, norm='L2', weight=1):
         super(TimeDerivativeBC, self).__init__(dataset, name, norm, weight)
@@ -145,3 +147,4 @@ class TimeDerivativeBC(BoundaryCondition):
         pred_dt = grad(pred, x, create_graph=True, grad_outputs=grads)[0][:, -1]
         pred_dt = pred_dt.reshape(-1,1)
         return self.weight * self.norm(pred_dt, dt_y)
+
