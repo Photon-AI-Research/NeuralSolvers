@@ -22,7 +22,6 @@ if __name__ == "__main__":
     parser.add_argument("--use_horovod", type=int, default=1)
     parser.add_argument("--use_wandb", type=int, default=1)
     parser.add_argument("--weight", type=float, default=1.)
-    parser.add_argument("--weight_j", type=float, default=1.)
     parser.add_argument("--weight_hpm", type=float, default=1.)
     # Dataset parameters
     parser.add_argument("--path_data", type=str)
@@ -63,7 +62,7 @@ if __name__ == "__main__":
     # Create Initial Condition & PDE datasets
     ic_dataset = InitialConditionDataset(  
         data_info, args.batch_size, num_batches, segm_params)
-    initial_condition = pf.InitialCondition(dataset=ic_dataset, name="Initial Condition", weight=args.weight, weight_j=args.weight_j)
+    initial_condition = pf.InitialCondition(dataset=ic_dataset, name="Initial Condition", weight=args.weight)
     pde_dataset = PDEDataset(
         data_info,
         args.batch_size,
@@ -99,7 +98,6 @@ if __name__ == "__main__":
         pde_loss=hpm_loss,
         initial_condition=initial_condition,
         boundary_condition=None,
-        rec_loss=None,
         use_gpu=args.use_gpu,
         use_horovod=args.use_horovod)
     pinn.fit(epochs=args.epochs, epochs_pt=args.epochs_pt, optimizer='Adam', learning_rate=args.learning_rate, lbfgs_finetuning=False, pinn_path='./models/' + args.name+'_best_model_pinn.pt', hpm_path='./models/' + args.name+'_best_model_hpm.pt')
