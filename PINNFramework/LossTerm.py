@@ -25,3 +25,4 @@ class LossTerm:
         self.dataset = dataset
         self.name = name
         self.weight = weight
+

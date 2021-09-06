@@ -4,7 +4,6 @@ class HPMLoss(PDELoss):
     def __init__(self, dataset, name, hpm_input, hpm_model, norm='L2', weight=1.):
         """
         Constructor of the HPM loss
-
         Args:
             dataset (torch.utils.Dataset): dataset that provides the residual points
             hpm_input(function): function that calculates the needed input for the HPM model. The hpm_input function
@@ -20,7 +19,6 @@ class HPMLoss(PDELoss):
     def __call__(self, x, model, **kwargs):
         """
         Calculation of the HPM Loss
-
         Args:
             x(torch.Tensor): residual points
             model(torch.nn.module): model representing the solution

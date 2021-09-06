@@ -4,7 +4,9 @@ from .moe_mlp import MoE as MoE
 from .snake_mlp import SnakeMLP
 from .Finger_Net import FingerNet
 from .moe_finger import MoE as FingerMoE
+from .pennesmodel import PennesHPM
 from . import activations
+
 __all__ = [
     'MLP',
     'MoE',
@@ -12,6 +14,8 @@ __all__ = [
     'SnakeMLP',
     'FingerNet',
     'FingerMoE',
-    'activations'
+    'activations',
+    'PennesHPM' 
     
 ]
+
