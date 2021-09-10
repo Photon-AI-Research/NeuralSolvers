@@ -105,6 +105,12 @@ class PINN(nn.Module):
             self.initial_condition = initial_condition
         else:
             raise TypeError("Initial condition has to be an instance of the InitialCondition class")
+            
+        if not len(initial_condition.dataset):
+            raise ValueError("Initial condition dataset is empty")
+                             
+        if not len(pde_loss.dataset):
+            raise ValueError("PDE dataset is empty")   
 
         joined_datasets = {
             initial_condition.name: initial_condition.dataset,
@@ -120,6 +126,8 @@ class PINN(nn.Module):
                 for bc in boundary_condition:
                     if not isinstance(bc, BoundaryCondition):
                         raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
+                    if not len(bc.dataset):
+                        raise ValueError("Boundary condition dataset is empty") 
                     joined_datasets[bc.name] = bc.dataset
                     if self.rank == 0:
                         self.loss_log[bc.name] = float(0.0)
@@ -467,9 +475,6 @@ class PINN(nn.Module):
         else:
             data_loader = DataLoader(self.dataset, batch_size=1, worker_init_fn=worker_init_fn)
             data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None, worker_init_fn=worker_init_fn)
-            
-        assert len(data_loader), "Dataset is empty."
-        assert len(data_loader_pt) , "Pretraining dataset is empty."   
 
         start_epoch = 0
 
