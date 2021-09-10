@@ -191,3 +191,13 @@ pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_
 ```
 
 Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported with horovod activated. Another restriction is that the length or your dataset should not be smaller than the number of used GPUs for horovod. 
+
+# Developers
+
+## Scientific Supervision
+Nico Hoffmann (HZDR)
+
+## Core Developers
+Patrick Stiller (HZDR)
+Maksim Zhandanov (HZDR)
+Jeyhun Rustamov (HZDR)
