@@ -467,6 +467,9 @@ class PINN(nn.Module):
         else:
             data_loader = DataLoader(self.dataset, batch_size=1, worker_init_fn=worker_init_fn)
             data_loader_pt = DataLoader(self.initial_condition.dataset, batch_size=None, worker_init_fn=worker_init_fn)
+            
+        assert len(data_loader), "Dataset is empty."
+        assert len(data_loader_pt) , "Pretraining dataset is empty."   
 
         start_epoch = 0
 
