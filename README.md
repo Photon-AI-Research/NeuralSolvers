@@ -196,8 +196,7 @@ Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported
 
 ### Scientific Supervision
 Nico Hoffmann (HZDR)
-
-### Core Developers
-Patrick Stiller (HZDR)
-Maksim Zhandanov (HZDR)
+### Core Developers 
+Patrick Stiller (HZDR) <br/>
+Maksim Zhandanov (HZDR)<br/>
 Jeyhun Rustamov (HZDR)
