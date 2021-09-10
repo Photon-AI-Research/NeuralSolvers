@@ -14,7 +14,7 @@ physically informed neural networks significantly. To implement data parallelism
 <img src="images/scalability.png" width="50%" />
 </figure>
 
-More detais about our framework you can find in our recent publication: 
+More details about our framework you can find in our recent publication: 
 ```
 P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
 Large-scale Neural Solvers for Partial Differential Equations (2020).
