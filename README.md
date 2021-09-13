@@ -8,7 +8,7 @@
 Neural Solvers are neural network based solver for partial differential equations and inverse problems. 
 The framework implements the physics-informed neural network approach on scale. Physics informed neural networks
 allow strong scaling by design. Therefore, we have developed a framework that uses data parallelism to accelerate the training of 
-physically informed neural networks significantly. To implement data parallelism, we use the <a href="https://github.com/horovod/horovod">Horovod</a> framework, which provides near-ideal speedup on multi-GPU regimes.  
+physics informed neural networks significantly. To implement data parallelism, we use the <a href="https://github.com/horovod/horovod">Horovod</a> framework, which provides near-ideal speedup on multi-GPU regimes.  
 
 <figure align="center">
 <img src="images/scalability.png" width="50%" />
