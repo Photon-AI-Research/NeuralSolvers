@@ -141,14 +141,14 @@ class PINN(nn.Module):
                                     "or a list of instances of the BoundaryCondition class")
         self.dataset = JoinedDataset(joined_datasets, dataset_mode)
 
-    def loss_grad_std_wn(self, loss):
+    def loss_gradients(self, loss):
         device = torch.device("cuda" if self.use_gpu else "cpu")
         grad_ = torch.zeros((0), dtype=torch.float32, device=device)
         model_grads = grad(loss, self.model.parameters(), allow_unused=True, retain_graph=True)
         for elem in model_grads:
             if elem is not None:
                 grad_ = torch.cat((grad_, elem.view(-1)))
-        return torch.std(grad_)
+        return grad_
 
     def forward(self, x):
         """
@@ -265,16 +265,18 @@ class PINN(nn.Module):
             dictionary holds the training data for initial condition at the key "Initial_Condition" training data for
             the PDE at the key "PDE" and the data for the boundary condition under the name of the boundary condition
         """
+        if annealing:
+            self.loss_gradients_storage = {} # creating an empty dictionary that holds the loss gradients with respect to the weights
         pinn_loss = 0
         # unpack training data
         # ============== PDE LOSS ============== "
         if type(training_data[self.pde_loss.name]) is not list:
             pde_loss = self.pde_loss(training_data[self.pde_loss.name][0].type(self.dtype), self.model)
             if annealing:
-                std_pde = self.loss_grad_std_wn(pde_loss)
-            pinn_loss = pinn_loss + pde_loss
+                self.loss_gradients_storage[self.pde_loss.name] = self.loss_gradients(pde_loss)
+            pinn_loss = pinn_loss + self.pde_loss.weight * pde_loss
             if self.rank == 0:
-                self.loss_log[self.pde_loss.name] = pde_loss + self.loss_log[self.pde_loss.name] / self.pde_loss.weight
+                self.loss_log[self.pde_loss.name] = pde_loss + self.loss_log[self.pde_loss.name]
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
 
@@ -288,13 +290,11 @@ class PINN(nn.Module):
                     training_data[self.initial_condition.name][1][0].type(self.dtype)
                 )
                 if self.rank == 0:
-                    self.loss_log[self.initial_condition.name] = self.loss_log[self.initial_condition.name] +\
-                                                                 ic_loss / self.initial_condition.weight
+                    self.loss_log[self.initial_condition.name] = self.loss_log[self.initial_condition.name] + ic_loss
                 if annealing:
-                    std_ic = self.loss_grad_std_wn(ic_loss)
-                    lambda_hat = std_pde / std_ic
-                    self.initial_condition.weight = (1 - 0.5) * self.initial_condition.weight + 0.5 * lambda_hat
-                pinn_loss = pinn_loss + ic_loss
+                    self.loss_gradients_storage[self.initial_condition.name] = self.loss_gradients(ic_loss)
+
+                pinn_loss = pinn_loss + ic_loss * self.initial_condition.weight
             else:
                 raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                                  " and ground truth values y")
@@ -308,35 +308,52 @@ class PINN(nn.Module):
                 for bc in self.boundary_condition:
                     bc_loss = self.calculate_boundary_condition(bc, training_data[bc.name])
                     if self.rank == 0:
-                        self.loss_log[bc.name] = self.loss_log[bc.name] + bc_loss / bc.weight
+                        self.loss_log[bc.name] = self.loss_log[bc.name] + bc_loss
                     if annealing:
-                        std_bc = self.loss_grad_std_wn(bc_loss)
-                        lambda_hat = std_pde / std_bc
-                        bc.weight = (1 - 0.5) * bc.weight + 0.5 * lambda_hat
-                    pinn_loss = pinn_loss + bc_loss
+                        self.loss_gradients_storage[bc.name] = self.loss_gradients(bc_loss)
+                    pinn_loss = pinn_loss + bc_loss * bc.weight
             else:
                 bc_loss = self.calculate_boundary_condition(self.boundary_condition,
                                                             training_data[self.boundary_condition.name])
                 if self.rank == 0:
-                    self.loss_log[self.boundary_condition.name] = self.loss_log[self.boundary_condition.name] +\
-                                                                  bc_loss / self.boundary_condition.weight
+                    self.loss_log[self.boundary_condition.name] = self.loss_log[self.boundary_condition.name] + bc_loss
                 if annealing:
-                    std_bc = self.loss_grad_std_wn(bc_loss)
-                    lambda_hat = std_pde / std_bc
-                    self.boundary_condition.weight = (1 - 0.5) * self.boundary_condition.weight + 0.5 * lambda_hat
-                pinn_loss = pinn_loss + bc_loss
+                    self.loss_gradients_storage[self.boundary_condition.name] = self.loss_gradients(bc_loss)
+                pinn_loss = pinn_loss + bc_loss * self.boundary_condition.weight
 
         # ============== Model specific losses  ============== "
         if hasattr(self.model, 'loss'):
             pinn_loss = pinn_loss + self.model.loss
             if self.rank == 0:
                 self.loss_log["model_loss_pinn"] = self.loss_log["model_loss_pinn"] + self.model.loss
+
         if self.is_hpm:
             if hasattr(self.pde_loss.hpm_model, 'loss'):
                 pinn_loss = pinn_loss + self.pde_loss.hpm_model.loss
                 if self.rank == 0:
                     self.loss_log["model_loss_hpm"] = self.loss_log["model_loss_hpm"] + self.pde_loss.hpm_model.loss
+        if annealing:
+            # calculating maximum std
+            stds = [torch.std(grad_) for grad_ in self.loss_gradients_storage.values()]
+            maximum_std = max(stds)
 
+            # annealing initial condition
+            lambda_ic_head = maximum_std / torch.std(self.loss_gradients_storage[self.initial_condition.name])
+            self.initial_condition.weight = 0.5 * self. initial_condition.weight + 0.5 * lambda_ic_head
+
+            # annealing boundary condition
+            if isinstance(self.boundary_condition, list):
+                for bc in self.boundary_condition:
+                    # annealing initial condition
+                    lambda_bc_head = maximum_std / torch.std(self.loss_gradients_storage[bc.name])
+                    bc.weight = 0.5 * bc.weight + 0.5 * lambda_bc_head
+            else:
+                lambda_bc_head = maximum_std / torch.std(self.loss_gradients_storage[self.boundary_condition.name])
+                self.boundary_condition.weight = 0.5 * self.boundary_condition.weight + 0.5 * lambda_bc_head
+
+            # annealing pde loss
+            lambda_pde_head = maximum_std / torch.std(self.loss_gradients_storage[self.pde_loss.name])
+            self.pde_loss.weight = 0.5 * self.pde_loss.weight + 0.5 * lambda_pde_head
         return pinn_loss
 
     def write_checkpoint(self, checkpoint_path, epoch, pretraining, minimum_pinn_loss, optimizer):
@@ -537,6 +554,7 @@ class PINN(nn.Module):
 
             if not self.rank:
                 print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch+1, epochs), flush=True)
+
                 if logger is not None and not (epoch+1) % writing_cycle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
                     logger.log_scalar(scalar=sum(self.loss_log.values())/batch_counter,
@@ -549,6 +567,12 @@ class PINN(nn.Module):
                     logger.log_scalar(scalar=self.initial_condition.weight,
                                       name=self.initial_condition.name + "_weight",
                                       epoch=epoch+1)
+                    # track
+                    if activate_annealing:
+                        for key, gradients in self.loss_gradients_storage.items():
+                            logger.log_histogram(gradients,
+                                                 'gradients_' + key,
+                                                 epoch+1)
                     if not self.is_hpm:
                         if isinstance(self.boundary_condition, list):
                             for bc in self.boundary_condition:

@@ -30,4 +30,4 @@ class PDELoss(LossTerm):
         u = model.forward(x)
         pde_residual = self.pde(x, u, **kwargs)
         zeros = torch.zeros(pde_residual.shape, device=pde_residual.device)
-        return self.weight * self.norm(pde_residual, zeros)
+        return self.norm(pde_residual, zeros)

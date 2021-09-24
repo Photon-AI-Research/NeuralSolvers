@@ -22,7 +22,7 @@ class DirichletBC(BoundaryCondition):
 
     def __call__(self, x, model):
         prediction = model(x)  # is equal to y
-        return self.weight * self.norm(prediction, self.func(x))
+        return self.norm(prediction, self.func(x))
 
 
 class NeumannBC(BoundaryCondition):
@@ -59,7 +59,7 @@ class NeumannBC(BoundaryCondition):
         grad_y = grad_y[:,self.begin:self.end]
         self.normal_vector.to(y.device)  # move normal vector to the correct device
         y_dn = grad_y @ self.normal_vector
-        return self.weight * self.norm(y_dn, self.func(x))
+        return self.norm(y_dn, self.func(x))
 
 
 class RobinBC(BoundaryCondition):
@@ -95,7 +95,7 @@ class RobinBC(BoundaryCondition):
         grad_y = grad_y[:, self.begin:self.end]
         self.normal_vector.to(y.device)  # move normal vector to the correct device
         y_dn = grad_y @ self.normal_vector
-        return self.weight * self.norm(y_dn, self.func(x, y))
+        return self.norm(y_dn, self.func(x, y))
 
 
 class PeriodicBC(BoundaryCondition):
@@ -145,6 +145,6 @@ class TimeDerivativeBC(BoundaryCondition):
         pred = model(x)
         grads = ones(pred.shape, device=pred.device)
         pred_dt = grad(pred, x, create_graph=True, grad_outputs=grads)[0][:, -1]
-        pred_dt = pred_dt.reshape(-1,1)
-        return self.weight * self.norm(pred_dt, dt_y)
+        pred_dt = pred_dt.reshape(-1, 1)
+        return self.norm(pred_dt, dt_y)
 
