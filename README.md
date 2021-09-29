@@ -189,7 +189,13 @@ You can activate horovod support by setting the `use_horovod` flag in the constr
 ```python
 pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True, use_horovod=True)
 ```
-
+## Wandb support 
+Activate wandb-logging by creating an instance of a wandb logging. Its important that you have wandb installed. 
+Look here for installing wandb: https://docs.wandb.ai/quickstart
+```python
+logger = pf.WandbLogger(project, args) # create logger instance
+pinn.fit(epochs=5000,logger=logger) # add logger to the fit method
+```
 Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported with horovod activated. Another restriction is that the length or your dataset should not be smaller than the number of used GPUs for horovod. 
 
 ## Developers
