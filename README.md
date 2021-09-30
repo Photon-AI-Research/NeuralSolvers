@@ -211,5 +211,5 @@ Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported
 Nico Hoffmann (HZDR)
 ### Core Developers 
 Patrick Stiller (HZDR) <br/>
-Maksim Zhandanov (HZDR)<br/>
+Maksim Zhdanov (HZDR)<br/>
 Jeyhun Rustamov (HZDR)
