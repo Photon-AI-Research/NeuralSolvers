@@ -91,6 +91,7 @@ if __name__ == "__main__":
     hpm_model = pf.models.PennesHPM(config)
     hpm_loss = pf.HPMLoss.HPMLoss(dataset=pde_dataset, hpm_input=derivatives, hpm_model=hpm_model, name="Pennes Equation", weight=args.weight_hpm)
     # Initialize and fit an physics-informed neural network
+    logger = pf.TensorBoardLogger('.')
     pinn = pf.PINN(
         model,
         input_dimension=8,
@@ -100,4 +101,4 @@ if __name__ == "__main__":
         boundary_condition=None,
         use_gpu=args.use_gpu,
         use_horovod=args.use_horovod)
-    pinn.fit(epochs=args.epochs, epochs_pt=args.epochs_pt, optimizer='Adam', learning_rate=args.learning_rate, lbfgs_finetuning=False, pinn_path='./models/' + args.name+'_best_model_pinn.pt', hpm_path='./models/' + args.name+'_best_model_hpm.pt')
+    pinn.fit(epochs=args.epochs, epochs_pt=args.epochs_pt, optimizer='Adam', learning_rate=args.learning_rate, lbfgs_finetuning=False, pinn_path='./models/' + args.name+'_best_model_pinn.pt', hpm_path='./models/' + args.name+'_best_model_hpm.pt', logger=logger)
