@@ -196,7 +196,14 @@ Look here for installing wandb: https://docs.wandb.ai/quickstart
 logger = pf.WandbLogger(project, args) # create logger instance
 pinn.fit(epochs=5000,logger=logger) # add logger to the fit method
 ```
+## Tensorboard support 
+Activate tensorboard-logging by creating an event file with tensorboardX. Its important that you have tensorboardX installed. 
+```python
+logger = pf.TensorBoardLogger(log_directory) # create logger instance
+pinn.fit(epochs=5000,logger=logger) # add logger to the fit method
+```
 Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported with horovod activated. Another restriction is that the length or your dataset should not be smaller than the number of used GPUs for horovod. 
+
 
 ## Developers
 
@@ -204,5 +211,5 @@ Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported
 Nico Hoffmann (HZDR)
 ### Core Developers 
 Patrick Stiller (HZDR) <br/>
-Maksim Zhandanov (HZDR)<br/>
+Maksim Zhdanov (HZDR)<br/>
 Jeyhun Rustamov (HZDR)
