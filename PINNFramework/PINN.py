@@ -346,7 +346,6 @@ class PINN(nn.Module):
 
         if self.is_hpm:
             checkpoint["hpm_model"] = self.pde_loss.hpm_model.state_dict()
-        checkpoint_path = checkpoint_path + '_' + str(epoch)
         torch.save(checkpoint, checkpoint_path)
 
 

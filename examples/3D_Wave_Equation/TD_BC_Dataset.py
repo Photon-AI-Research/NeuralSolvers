@@ -38,7 +38,7 @@ class TDBCDataset(Dataset):
 
         dzBz, dyBz, dxBz = np.gradient(B_z, self.cell_depth, self.cell_height, self.cell_width)
         dzBy, dyBy, dxBy = np.gradient(B_y, self.cell_depth, self.cell_height, self.cell_width)
-        self.dt_Ex = dxBz - dzBy
+        self.dt_Ex = dyBz - dzBy
         field_shape = B_z.shape # (z, y, x)
   
         z_length = field_shape[0]

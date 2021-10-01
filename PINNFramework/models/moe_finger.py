@@ -167,7 +167,7 @@ class MoE(nn.Module):
         if self.use_gpu:
             self.normal = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
         else:
-            self.normal = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
+            self.normal = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
         
         self.non_linear = non_linear
         if self.non_linear:

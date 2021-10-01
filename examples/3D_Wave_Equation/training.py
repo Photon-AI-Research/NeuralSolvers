@@ -192,6 +192,9 @@ if __name__ == "__main__":
     parser.add_argument("--max_t", dest="max_t", type=int, default=3000)
     parser.add_argument("--restart", dest="restart", type=int, default=1)
     parser.add_argument("--checkpoint", dest="checkpoint", type=str)
+    parser.add_argument("--weight_ic",dest="weight_ic",type=float)
+    parser.add_argument("--weight_bc",dest="weight_bc",type=float)
+    parser.add_argument("--weight_pde",dest="weight_pde",type=float)
     args = parser.parse_args()
     ic_dataset = ICDataset(path=args.path,
                            iteration=args.iteration,
@@ -199,14 +202,13 @@ if __name__ == "__main__":
                            batch_size=args.batch_size_n0,
                            max_t=args.max_t,
                            normalize_labels=args.normalize_labels)
-    print("ic", len(ic_dataset))
-    initial_condition = pf.InitialCondition(ic_dataset, "Initial Condition")
+                           
+    initial_condition = pf.InitialCondition(ic_dataset, "Initial Condition",weight=args.weight_ic)
     pde_dataset = PDEDataset(args.path, args.nf, args.batch_size_nf, args.iteration, args.max_t)
-    print("pde", len(pde_dataset))
-    pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation")
+    pde_condition = pf.PDELoss(pde_dataset, wave_eq, "Wave Equation",weight=args.weight_pde)
 
     bc_dataset = DTDataset(args.path, args.iteration, args.nb, args.batch_size_nb)
-    dt_boundary = pf.TimeDerivativeBC(bc_dataset, "Time Derivative Boundary")
+    dt_boundary = pf.TimeDerivativeBC(bc_dataset, "Time Derivative Boundary",weight=args.weight_bc)
     #boundary_x = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 2), 0, "Boundary x")
     #boundary_y = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 1), 0, "Boundary y")
     #boundary_z = pf.PeriodicBC(BCDataset(ic_dataset.lb, ic_dataset.ub, args.nb, args.batch_size_nb, 0), 0, "Boundary z")
@@ -296,12 +298,13 @@ if __name__ == "__main__":
              pretraining=False,
              epochs_pt=30,
              lbfgs_finetuning=False,
-             writing_cylcle=10,
+             writing_cycle=5,
              activate_annealing=args.annealing,
              logger=logger,
              checkpoint_path=checkpoint_path,
              restart=args.restart,
              callbacks=cb_list,
+             annealing_cycle=5,
              pinn_path="best_model_" + args.name + '.pt'
              )
     #performance_callback.lock.value = 0
