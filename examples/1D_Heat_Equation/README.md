@@ -5,24 +5,27 @@
 
 python 1D_Heat_Equation.py --num_epochs=10000 --n0=50 --nb=50 --nf=20000 --num_hidden=4 --hidden_size=100
 
-OR simply the defualt: python 1D_Heat_Equation.py 
+OR simply the default: python 1D_Heat_Equation.py 
 
 ---
+## Problem Setup
+PDE:
 
-Underlying PDE:
-$$ u_{t}=c u_{x x}
-$$
+<img src="https://render.githubusercontent.com/render/math?math=u_{t}=c u_{x x}">
+
 Initial condition:
-$$ u(x,0)= \sin(\pi x/L)
-$$
+
+<img src="https://render.githubusercontent.com/render/math?math=u(x,0)= \sin(\pi x/L)">
+
 Boundary conditions:
-$$ u(0,t)= 0 \\
-u(L,t)= 0
-$$
+
+<img src="https://render.githubusercontent.com/render/math?math=u(0,t)= 0">
+<img src="https://render.githubusercontent.com/render/math?math=u(L,t)= 0">
 
 Analytical Solution:
-$$ u(x,t)= e^{-(c\pi/L)^2t} \sin(\pi x/L)
-$$
+
+<img src="https://render.githubusercontent.com/render/math?math=u(x,t)= e^{-(c\pi/L)^2t} \sin(\pi x/L)">
+
 
 ---
 ## Plots
@@ -34,7 +37,7 @@ PINN             |  Analytical solution
 ![PINN](PINN.png)  |  ![Analytical Solution](Analytical_Solution.png)
 
 ---
-2)
+1)
 <figure align="center">
 <img src="Initial_condition.png" width="80%"/>
 </figure>
