@@ -1,9 +1,3 @@
-
-# coding: utf-8
-
-# In[21]:
-
-
 import sys
 
 from argparse import ArgumentParser
@@ -21,14 +15,12 @@ from matplotlib.colors import LogNorm
 import wandb 
 
 
-# In[2]:
 
 
 sys.path.append("NeuralSolvers/")  # PINNFramework etc.
 import PINNFramework as pf
 
 
-# In[3]:
 
 
 class BoundaryConditionDatasetlb(Dataset):
@@ -61,7 +53,6 @@ class BoundaryConditionDatasetlb(Dataset):
         return 1
 
 
-# In[4]:
 
 
 class BoundaryConditionDatasetub(Dataset):
@@ -94,7 +85,6 @@ class BoundaryConditionDatasetub(Dataset):
         return 1
 
 
-# In[5]:
 
 
 class InitialConditionDataset(Dataset):
@@ -137,7 +127,6 @@ class InitialConditionDataset(Dataset):
         return Tensor(x).float(), Tensor(y).float()
 
 
-# In[6]:
 
 
 class PDEDataset(Dataset):
@@ -157,7 +146,6 @@ class PDEDataset(Dataset):
         return 1
 
 
-# In[26]:
 
 
 if __name__ == "__main__":
@@ -259,7 +247,6 @@ if __name__ == "__main__":
     plt.show()
 
 
-# In[54]:
 
 
 # Analytical Solution
@@ -293,7 +280,6 @@ plt.colorbar().set_label('Temperature (°C)')
 plt.show()
 
 
-# In[55]:
 
 
 #PDEloss plot
@@ -332,7 +318,6 @@ plt.imshow(F_u.T, cmap='jet', aspect='auto', extent= [lb[1], ub[1], lb[0], ub[0]
 plt.colorbar().set_label('F_u')
 
 
-# In[56]:
 
 
 # PINN vs analytical solution at t_idx=0
@@ -354,7 +339,6 @@ rel_error = np.linalg.norm(H_pred[0,:]- U[0,:]) / np.linalg.norm(U[0,:])
 print('Relative error (%):', rel_error*100)
 
 
-# In[57]:
 
 
 # PINN vs analytical solution at t_idx = 50
@@ -376,7 +360,6 @@ rel_error = np.linalg.norm(H_pred[50,:]- U[50,:]) / np.linalg.norm(U[50,:])
 print('Relative error (%):', rel_error*100)
 
 
-# In[58]:
 
 
 # PINN vs analytical solution at t_idx = 100
@@ -398,7 +381,6 @@ rel_error = np.linalg.norm(H_pred[100,:]- U[100,:]) / np.linalg.norm(U[100,:])
 print('Relative error (%):', rel_error*100)
 
 
-# In[59]:
 
 
 # PINN vs analytical solution at t_idx=199
@@ -420,7 +402,6 @@ rel_error = np.linalg.norm(H_pred[199,:]- U[199,:]) / np.linalg.norm(U[199,:])
 print('Relative error (%):', rel_error*100)
 
 
-# In[60]:
 
 
 # PINN results at different time points
@@ -434,7 +415,6 @@ plt.ylabel('Temperature / °C')
 plt.show()
 
 
-# In[61]:
 
 
 # Analytical solution at different time points
