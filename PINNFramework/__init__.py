@@ -8,6 +8,7 @@ from .BoundaryCondition import NeumannBC
 from .PDELoss import PDELoss
 from .Logger_Interface import LoggerInterface
 from .WandB_Logger import WandbLogger
+from .TensorBoard_Logger import TensorBoardLogger
 from .PINN import PINN
 
 import PINNFramework.models
@@ -27,4 +28,5 @@ __all__ = [
     'models',
     'LoggerInterface',
     'WandbLogger',
+    'TensorBoardLogger',
     'callbacks']

@@ -8,13 +8,13 @@
 Neural Solvers are neural network based solver for partial differential equations and inverse problems. 
 The framework implements the physics-informed neural network approach on scale. Physics informed neural networks
 allow strong scaling by design. Therefore, we have developed a framework that uses data parallelism to accelerate the training of 
-physically informed neural networks significantly. To implement data parallelism, we use the <a href="https://github.com/horovod/horovod">Horovod</a> framework, which provides near-ideal speedup on multi-GPU regimes.  
+physics informed neural networks significantly. To implement data parallelism, we use the <a href="https://github.com/horovod/horovod">Horovod</a> framework, which provides near-ideal speedup on multi-GPU regimes.  
 
 <figure align="center">
 <img src="images/scalability.png" width="50%" />
 </figure>
 
-More detais about our framework you can find in our recent publication: 
+More details about our framework you can find in our recent publication: 
 ```
 P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
 Large-scale Neural Solvers for Partial Differential Equations (2020).
@@ -188,6 +188,29 @@ pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initial_
 You can activate horovod support by setting the `use_horovod` flag in the constructor of the pinn
 ```python
 pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True, use_horovod=True)
+Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported with horovod activated. Another restriction is that the length or your dataset should not be smaller than the number of used GPUs for horovod.
 ```
+## Wandb support 
+Activate wandb-logging by creating an instance of a wandb logging. Its important that you have wandb installed. 
+Look here for installing wandb: https://docs.wandb.ai/quickstart
+```python
+logger = pf.WandbLogger(project, args) # create logger instance
+pinn.fit(epochs=5000,logger=logger) # add logger to the fit method
+```
+## Tensorboard support 
+Activate tensorboard-logging by creating an event file with tensorboardX. Its important that you have tensorboardX installed. 
+```python
+logger = pf.TensorBoardLogger(log_directory) # create logger instance
+pinn.fit(epochs=5000,logger=logger) # add logger to the fit method
+```
+ 
 
-Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported with horovod activated. Another restriction is that the length or your dataset should not be smaller than the number of used GPUs for horovod. 
+
+## Developers
+
+### Scientific Supervision
+Nico Hoffmann (HZDR)
+### Core Developers 
+Patrick Stiller (HZDR) <br/>
+Maksim Zhdanov (HZDR)<br/>
+Jeyhun Rustamov (HZDR)
