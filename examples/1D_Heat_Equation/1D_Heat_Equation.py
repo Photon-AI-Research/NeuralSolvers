@@ -30,7 +30,9 @@ class BoundaryConditionDatasetlb(Dataset):
         Constructor of the lower boundary condition dataset
 
         Args:
-          n0 (int)
+          nb (int)
+          lb (numpy.ndarray)
+          ub (numpy.ndarray)
         """
         super(type(self)).__init__()
         
@@ -43,7 +45,9 @@ class BoundaryConditionDatasetlb(Dataset):
         
     def __getitem__(self, idx):
         """
-        Returns data for initial state
+        Returns data at given index
+        Args:
+            idx (int)
         """
         return Tensor(self.x_lb).float()
     def __len__(self):
@@ -62,7 +66,9 @@ class BoundaryConditionDatasetub(Dataset):
         Constructor of the upper boundary condition dataset
 
         Args:
-          n0 (int)
+          nb (int)
+          lb (numpy.ndarray)
+          ub (numpy.ndarray)
         """
         super(type(self)).__init__()
     
@@ -75,7 +81,9 @@ class BoundaryConditionDatasetub(Dataset):
 
     def __getitem__(self, idx):
         """
-        Returns data for initial state
+        Returns data at given index
+        Args:
+            idx (int)
         """
         return Tensor(self.x_ub).float()
     def __len__(self):
@@ -130,12 +138,23 @@ class InitialConditionDataset(Dataset):
 
 
 class PDEDataset(Dataset):
+    
     def __init__(self, nf, lb, ub):
+        """
+        Constructor of the PDE dataset
+
+        Args:
+          nf (int)
+          lb (numpy.ndarray)
+          ub (numpy.ndarray)
+        """
         self.xf = lb + (ub - lb) * lhs(2, nf)
 
     def __getitem__(self, idx):
         """
-        Returns data for initial state
+        Returns data at given index
+        Args:
+            idx (int)
         """
         return Tensor(self.xf).float()
 
