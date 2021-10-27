@@ -29,4 +29,4 @@ class HPMLoss(PDELoss):
         time_derivative = hpm_input[:, -1]
         input = hpm_input[:, :-1]
         hpm_output = self.hpm_model(input)
-        return self.weight * self.norm(time_derivative, hpm_output)
+        return self.norm(time_derivative, hpm_output)

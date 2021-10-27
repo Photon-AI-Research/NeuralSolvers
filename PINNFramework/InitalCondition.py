@@ -26,4 +26,4 @@ class InitialCondition(LossTerm):
         gt_y (Tensor): ground true values for the initial state
         """
         prediction = model(x)
-        return self.weight * self.norm(prediction, gt_y)
+        return self.norm(prediction, gt_y)

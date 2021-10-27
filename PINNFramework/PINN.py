@@ -54,7 +54,7 @@ class PINN(nn.Module):
         self.use_gpu = use_gpu
         self.use_horovod = use_horovod
         self.rank = 0  # initialize rank 0 by default in order to make the fit method more flexible
-
+        self.loss_gradients_storage = {}
         if self.use_horovod:
 
             # Initialize Horovod
@@ -141,14 +141,14 @@ class PINN(nn.Module):
                                     "or a list of instances of the BoundaryCondition class")
         self.dataset = JoinedDataset(joined_datasets, dataset_mode)
 
-    def loss_grad_std_wn(self, loss):
+    def loss_gradients(self, loss):
         device = torch.device("cuda" if self.use_gpu else "cpu")
         grad_ = torch.zeros((0), dtype=torch.float32, device=device)
         model_grads = grad(loss, self.model.parameters(), allow_unused=True, retain_graph=True)
         for elem in model_grads:
             if elem is not None:
                 grad_ = torch.cat((grad_, elem.view(-1)))
-        return torch.std(grad_)
+        return grad_
 
     def forward(self, x):
         """
@@ -255,7 +255,48 @@ class PINN(nn.Module):
                 raise ValueError("The boundary condition {} has to be tuple of coordinates for lower and upper bound".
                                  format(boundary_condition.name))
 
-    def pinn_loss(self, training_data, annealing=False):
+    def inverse_dirichlet_annealing(self, alpha=0.5):
+        # calculating maximum std
+        stds = [torch.std(grad_) for grad_ in self.loss_gradients_storage.values()]
+        maximum_std = max(stds)
+
+        # annealing initial condition
+        lambda_ic_head = maximum_std / torch.std(self.loss_gradients_storage[self.initial_condition.name])
+        self.initial_condition.weight = 0.5 * self.initial_condition.weight + 0.5 * lambda_ic_head
+
+        # annealing boundary condition
+        if isinstance(self.boundary_condition, list):
+            for bc in self.boundary_condition:
+                # annealing initial condition
+                lambda_bc_head = maximum_std / torch.std(self.loss_gradients_storage[bc.name])
+                bc.weight = 0.5 * bc.weight + 0.5 * lambda_bc_head
+        else:
+            lambda_bc_head = maximum_std / torch.std(self.loss_gradients_storage[self.boundary_condition.name])
+            self.boundary_condition.weight = 0.5 * self.boundary_condition.weight + 0.5 * lambda_bc_head
+
+        # annealing pde loss
+        lambda_pde_head = maximum_std / torch.std(self.loss_gradients_storage[self.pde_loss.name])
+        self.pde_loss.weight = 0.5 * self.pde_loss.weight + 0.5 * lambda_pde_head
+
+    def standard_learning_rate_annealing(self, alpha=0.9):
+        # calculating maximum std
+        maximum_residual = torch.max(torch.abs(self.loss_gradients_storage[self.pde_loss.name]))
+
+        # annealing initial condition
+        lambda_ic_head = maximum_residual / torch.mean(torch.abs(self.loss_gradients_storage[self.initial_condition.name]))
+        self.initial_condition.weight = (1-alpha) * self.initial_condition.weight + (alpha* lambda_ic_head)
+
+        # annealing boundary condition
+        if isinstance(self.boundary_condition, list):
+            for bc in self.boundary_condition:
+                # annealing initial condition
+                lambda_bc_head = maximum_residual / torch.mean(torch.abs(self.loss_gradients_storage[bc.name]))
+                bc.weight = (1-alpha) * bc.weight + alpha * lambda_bc_head
+        else:
+            lambda_bc_head = maximum_residual / torch.mean(torch.abs(self.loss_gradients_storage[self.boundary_condition.name]))
+            self.boundary_condition.weight = (1 - alpha) * self.boundary_condition.weight + alpha * lambda_bc_head
+
+    def pinn_loss(self, training_data, track_gradient=False, annealing=False):
         """
         Function for calculating the PINN loss. The PINN Loss is a weighted sum of losses for initial and boundary
         condition and the residual of the PDE
@@ -264,17 +305,21 @@ class PINN(nn.Module):
             training_data (Dictionary): Training Data for calculating the PINN loss in form of ta dictionary. The
             dictionary holds the training data for initial condition at the key "Initial_Condition" training data for
             the PDE at the key "PDE" and the data for the boundary condition under the name of the boundary condition
+            track_gradient(Boolean): Activates tracking of the gradinents of the loss terms
+            annealing (Boolean): Activates automatic balancing of the loss terms
         """
+        if annealing or track_gradient:
+            self.loss_gradients_storage = {} # creating an empty dictionary that holds the loss gradients with respect to the weights
         pinn_loss = 0
         # unpack training data
         # ============== PDE LOSS ============== "
         if type(training_data[self.pde_loss.name]) is not list:
             pde_loss = self.pde_loss(training_data[self.pde_loss.name][0].type(self.dtype), self.model)
-            if annealing:
-                std_pde = self.loss_grad_std_wn(pde_loss)
-            pinn_loss = pinn_loss + pde_loss
+            if annealing or track_gradient:
+                self.loss_gradients_storage[self.pde_loss.name] = self.loss_gradients(pde_loss)
+            pinn_loss = pinn_loss + self.pde_loss.weight * pde_loss
             if self.rank == 0:
-                self.loss_log[self.pde_loss.name] = pde_loss + self.loss_log[self.pde_loss.name] / self.pde_loss.weight
+                self.loss_log[self.pde_loss.name] = pde_loss + self.loss_log[self.pde_loss.name]
         else:
             raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
 
@@ -288,13 +333,11 @@ class PINN(nn.Module):
                     training_data[self.initial_condition.name][1][0].type(self.dtype)
                 )
                 if self.rank == 0:
-                    self.loss_log[self.initial_condition.name] = self.loss_log[self.initial_condition.name] +\
-                                                                 ic_loss / self.initial_condition.weight
-                if annealing:
-                    std_ic = self.loss_grad_std_wn(ic_loss)
-                    lambda_hat = std_pde / std_ic
-                    self.initial_condition.weight = (1 - 0.5) * self.initial_condition.weight + 0.5 * lambda_hat
-                pinn_loss = pinn_loss + ic_loss
+                    self.loss_log[self.initial_condition.name] = self.loss_log[self.initial_condition.name] + ic_loss
+                if annealing or track_gradient:
+                    self.loss_gradients_storage[self.initial_condition.name] = self.loss_gradients(ic_loss)
+
+                pinn_loss = pinn_loss + ic_loss * self.initial_condition.weight
             else:
                 raise ValueError("Training Data for initial condition is a tuple (x,y) with x the  input coordinates"
                                  " and ground truth values y")
@@ -308,34 +351,32 @@ class PINN(nn.Module):
                 for bc in self.boundary_condition:
                     bc_loss = self.calculate_boundary_condition(bc, training_data[bc.name])
                     if self.rank == 0:
-                        self.loss_log[bc.name] = self.loss_log[bc.name] + bc_loss / bc.weight
-                    if annealing:
-                        std_bc = self.loss_grad_std_wn(bc_loss)
-                        lambda_hat = std_pde / std_bc
-                        bc.weight = (1 - 0.5) * bc.weight + 0.5 * lambda_hat
-                    pinn_loss = pinn_loss + bc_loss
+                        self.loss_log[bc.name] = self.loss_log[bc.name] + bc_loss
+                    if annealing or track_gradient:
+                        self.loss_gradients_storage[bc.name] = self.loss_gradients(bc_loss)
+                    pinn_loss = pinn_loss + bc_loss * bc.weight
             else:
                 bc_loss = self.calculate_boundary_condition(self.boundary_condition,
                                                             training_data[self.boundary_condition.name])
                 if self.rank == 0:
-                    self.loss_log[self.boundary_condition.name] = self.loss_log[self.boundary_condition.name] +\
-                                                                  bc_loss / self.boundary_condition.weight
-                if annealing:
-                    std_bc = self.loss_grad_std_wn(bc_loss)
-                    lambda_hat = std_pde / std_bc
-                    self.boundary_condition.weight = (1 - 0.5) * self.boundary_condition.weight + 0.5 * lambda_hat
-                pinn_loss = pinn_loss + bc_loss
+                    self.loss_log[self.boundary_condition.name] = self.loss_log[self.boundary_condition.name] + bc_loss
+                if annealing or track_gradient:
+                    self.loss_gradients_storage[self.boundary_condition.name] = self.loss_gradients(bc_loss)
+                pinn_loss = pinn_loss + bc_loss * self.boundary_condition.weight
 
         # ============== Model specific losses  ============== "
         if hasattr(self.model, 'loss'):
             pinn_loss = pinn_loss + self.model.loss
             if self.rank == 0:
                 self.loss_log["model_loss_pinn"] = self.loss_log["model_loss_pinn"] + self.model.loss
+
         if self.is_hpm:
             if hasattr(self.pde_loss.hpm_model, 'loss'):
                 pinn_loss = pinn_loss + self.pde_loss.hpm_model.loss
                 if self.rank == 0:
                     self.loss_log["model_loss_hpm"] = self.loss_log["model_loss_hpm"] + self.pde_loss.hpm_model.loss
+        if annealing:
+            self.inverse_dirichlet_annealing(alpha=0.5)
 
         return pinn_loss
 
@@ -370,11 +411,12 @@ class PINN(nn.Module):
             epochs_pt=100,
             lbfgs_finetuning=True,
             writing_cycle=30,
-            writing_cycle_pt=10,
+            writing_cycle_pt=30,
             save_model=True,
             pinn_path='best_model_pinn.pt',
             hpm_path='best_model_hpm.pt',
             logger=None,
+            track_gradient=False,
             activate_annealing=False,
             annealing_cycle=100,
             callbacks=None):
@@ -389,11 +431,13 @@ class PINN(nn.Module):
             pretraining: Activates seperate training on the initial condition at the beginning
             epochs_pt: defines the number of epochs for the pretraining
             lbfgs_finetuning: Enables LBFGS finetuning after main training
-            writing_cylcle: defines the cylcus of model writing
+            writing_cycle: defines the cylcus of model writing
+            writing_cycle_pt: defines the cylcus of model writing in pretraining phase
             save_model: enables or disables checkpointing
             pinn_path: defines the path where the pinn get stored
             hpm_path: defines the path where the hpm get stored
             logger (Logger): tracks the convergence of all loss terms
+            track_gradient: activates tracking of histograms and write it to logger
             activate_annealing (Boolean): enables annealing
             annealing_cycle (int): defines the periodicity of using annealing
             callbacks (CallbackList): is a list of callbacks which are called at the end of a writing cycle. Can be used
@@ -526,9 +570,10 @@ class PINN(nn.Module):
             batch_counter = 0.
             pinn_loss_sum = 0.
             for idx, training_data in enumerate(data_loader):
-                do_annealing = activate_annealing and (idx == 0) and not (epoch + 1) % annealing_cycle
+                do_annealing = activate_annealing and not (epoch + 1) % annealing_cycle and idx == 0
+                do_gradient_tracking = track_gradient and not (epoch + 1) % writing_cycle and idx == 0
                 optim.zero_grad()
-                pinn_loss = self.pinn_loss(training_data, do_annealing)
+                pinn_loss = self.pinn_loss(training_data, do_gradient_tracking, do_annealing)
                 pinn_loss.backward()
                 optim.step()
                 pinn_loss_sum = pinn_loss_sum + pinn_loss
@@ -537,6 +582,7 @@ class PINN(nn.Module):
 
             if not self.rank:
                 print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch+1, epochs), flush=True)
+
                 if logger is not None and not (epoch+1) % writing_cycle:
                     logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
                     logger.log_scalar(scalar=sum(self.loss_log.values())/batch_counter,
@@ -549,6 +595,16 @@ class PINN(nn.Module):
                     logger.log_scalar(scalar=self.initial_condition.weight,
                                       name=self.initial_condition.name + "_weight",
                                       epoch=epoch+1)
+                    # Log weights of PDE LOss
+                    logger.log_scalar(scalar=self.pde_loss.weight,
+                                      name=self.pde_loss.name + '_weight',
+                                      epoch=epoch+1)
+                    # track gradients of loss terms as histogram
+                    if activate_annealing or track_gradient:
+                        for key, gradients in self.loss_gradients_storage.items():
+                            logger.log_histogram(gradients.cpu(),
+                                                 'gradients_' + key,
+                                                 epoch+1)
                     if not self.is_hpm:
                         if isinstance(self.boundary_condition, list):
                             for bc in self.boundary_condition:
@@ -575,6 +631,7 @@ class PINN(nn.Module):
                     self.write_checkpoint(checkpoint_path, epoch, False, minimum_pinn_loss, optim)
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)
+            pinn_loss = self.pinn_loss(training_data)
             print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch+1, epochs))
             if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cycle) and save_model:
                 self.save_model(pinn_path, hpm_path)
