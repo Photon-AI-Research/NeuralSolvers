@@ -43,6 +43,6 @@ class MLP(nn.Module):
         self.ub = self.ub.cpu()
         
     def to(self, device):
-        super(MLP,self).to(device)
-        self.lb.to(device)
-        self.ub.to(device)
+        super(MLP, self).to(device)
+        self.lb = self.lb.to(device)
+        self.ub = self.ub.to(device)
