@@ -37,3 +37,18 @@ class SnakeMLP(MLP):
             x = self.activation[i](x)
         x = self.linear_layers[-1](x)
         return x
+
+    def cuda(self):
+        super(SnakeMLP, self).cuda()
+        self.lb = self.lb.cuda()
+        self.ub = self.ub.cuda()
+
+    def cpu(self):
+        super(SnakeMLP, self).cpu()
+        self.lb = self.lb.cpu()
+        self.ub = self.ub.cpu()
+
+    def to(self, device):
+        super(SnakeMLP, self).to(device)
+        self.lb = self.lb.to(device)
+        self.ub = self.ub.to(device)

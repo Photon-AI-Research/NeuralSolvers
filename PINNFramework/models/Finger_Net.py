@@ -111,5 +111,5 @@ class FingerNet(nn.Module):
         
     def to(self, device):
         super(FingerNet, self).to(device)
-        self.lb.to(device)
-        self.ub.to(device)
+        self.lb = self.lb.to(device)
+        self.ub = self.ub.to(device)

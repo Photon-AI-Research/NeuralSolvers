@@ -348,3 +348,12 @@ class MoE(nn.Module):
         self.ub = self.ub.cpu()
         if self.non_linear:
             self.gating_network.cpu()
+
+    def to(self, device):
+        super(MoE, self).to(device)
+        for i in range(self.num_experts):
+            self.experts[i].to(device)
+        self.lb = self.lb.to(device)
+        self.ub = self.ub.to(device)
+        if self.non_linear:
+            self.gating_network.to(device)
