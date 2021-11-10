@@ -6,7 +6,7 @@ class FingerNet(nn.Module):
         torch.manual_seed(1234)
         super(FingerNet, self).__init__()
         self.input_size = inputSize
-        self.num_finger_layers= 3
+        self.num_finger_layers= num_finger_layers
         self.numFeatures = numFeatures
         self.numLayers = numLayers 
         self.lin_layers = nn.ModuleList()
@@ -25,24 +25,23 @@ class FingerNet(nn.Module):
         :param self:
         :return:
         """
-        lenInput = 1  # FingerNet Scales slices input
         self.finger_nets = []
         self.lin_layers = nn.ModuleList()
         for i in range(self.input_size):
             self.finger_nets.append(nn.ModuleList())
-            self.in_x.append(nn.Linear(lenInput, self.numFeatures))
-            for _ in range(self.num_finger_layers):
+            self.finger_nets[i].append(nn.Linear(1, self.numFeatures))
+            for _ in range(self.num_finger_layers-1):
                 self.finger_nets[i].append(nn.Linear(self.numFeatures, self.numFeatures))
             for m in self.finger_nets[i]:
                 if isinstance(m, nn.Linear):
                     nn.init.xavier_uniform_(m.weight)
 
         self.lin_layers.append(nn.Linear(self.input_size * self.numFeatures, self.numFeatures))
-        for i in range(self.numLayers):
+        for i in range(self.numLayers-1):
             inFeatures = self.numFeatures
             self.lin_layers.append(nn.Linear(inFeatures, self.numFeatures))
         inFeatures = self.numFeatures
-        self.lin_layers.append(nn.Linear(inFeatures, self.outut_size))
+        self.lin_layers.append(nn.Linear(inFeatures, self.output_size))
         for m in self.lin_layers:
             if isinstance(m, nn.Linear):
                 nn.init.xavier_uniform_(m.weight)
@@ -54,18 +53,18 @@ class FingerNet(nn.Module):
 
         input_tensors = []
         for i in range(self.input_size):
-            self.input_tensors.append(x_in[:,i].view(-1,1))
+            input_tensors.append(x_in[:, i].view(-1, 1))
 
         output_tensors = []
+
         for finger_idx in range(self.input_size):
             x_in = input_tensors[finger_idx]
-            for i in range(0,len(self.finger_nets[finger_idx])):
-                x_in = self.in_x[i](x_in)
+            for i in range(0, self.num_finger_layers):
+                x_in = self.finger_nets[finger_idx][i](x_in)
                 x_in = self.activation(x_in)
             output_tensors.append(x_in)
 
-        x = torch.cats(output_tensors, 1)
-
+        x = torch.cat(output_tensors, 1)
         for i in range(0, len(self.lin_layers)-1):
             x = self.lin_layers[i](x)
             x = self.activation(x)
@@ -75,15 +74,22 @@ class FingerNet(nn.Module):
 
     def cuda(self):
         super(FingerNet, self).cuda()
+        for layers in self.finger_nets:
+            layers.cuda()
+        self.lin_layers.cuda()
         self.lb = self.lb.cuda()
         self.ub = self.ub.cuda()
 
     def cpu(self):
         super(FingerNet, self).cpu()
+        for layers in self.finger_nets:
+            layers.cpu()
         self.lb = self.lb.cpu()
         self.ub = self.ub.cpu()
         
     def to(self, device):
         super(FingerNet, self).to(device)
+        for layers in self.finger_nets:
+            layers.to(device)
         self.lb = self.lb.to(device)
         self.ub = self.ub.to(device)
