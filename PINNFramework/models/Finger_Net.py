@@ -25,7 +25,7 @@ class FingerNet(nn.Module):
         :param self:
         :return:
         """
-        self.finger_nets = []
+        self.finger_nets = nn.ModuleList()
         self.lin_layers = nn.ModuleList()
         for i in range(self.input_size):
             self.finger_nets.append(nn.ModuleList())

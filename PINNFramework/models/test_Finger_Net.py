@@ -106,6 +106,16 @@ class FingerNetTest(unittest.TestCase):
         self.assertEqual(y.shape, (10, OutputSize))
         self.assertEqual(str(y.device), 'cuda:0')
 
+    def test_parameter_function(self):
+        InputSize = 3
+        OutputSize = 3
+        lb = [0, 0, 0]
+        ub = [1, 1, 1]
+        model = FingerNet(lb, ub, InputSize, OutputSize)
+        num_parameter_entries = 0
+        for _ in model.named_parameters(): num_parameter_entries +=1
+        self.assertGreater(num_parameter_entries, 0, "Number of parameters is not empty")
+
 
 if __name__ == '__main__':
     unittest.main()
