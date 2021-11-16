@@ -635,4 +635,27 @@ class PINN(nn.Module):
             print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch+1, epochs))
             if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cycle) and save_model:
                 self.save_model(pinn_path, hpm_path)
-
+                
+    def take_snapshot(model, file_path, device, n_points):
+        """
+        Calculates a model output on a regular 3D grid and saves it as a VTK data.
+        Args:
+            model (nn.Module): a model predicting a scalar. It must have 'lb' and 'ub' attributes.
+            file_path (str): a path of a file where VTK data will be saved.
+            device (str): the device where the given model is located.
+            n_points ([int,int,int]): number of points along each axis in the grid.        
+        """
+        assert len(model.lb) == 3 # Implemented only for 3D grid
+        from pyevtk.hl import imageToVTK 
+        # evenly spaced numbers over a inteval specified by model.lb and model.ub 
+        x,y,z = [torch.linspace(model.lb[i], model.ub[i], n_points[i]) for i in range(len(model.lb))]
+        x,y,z = torch.meshgrid(x,y,z)
+        # create an input of shape [# points, 3]
+        input = torch.cat([x.unsqueeze(-1),y.unsqueeze(-1),z.unsqueeze(-1)],-1).view(-1, 3).to(device)
+        # calculate the model output via minibatches of size 64
+        output = torch.cat([model(input[k*64:(k+1)*64]) for k in range((input.shape[0]//64+1))], 0).view(-1)
+        # convert all tensors to numpy arrays and save as VTK data
+        grid = [x.numpy(), y.numpy(), z.numpy()]
+        output = output.view(n_points).to('cpu').numpy()
+        imageToVTK(file_path, grid, pointData = {"model output": output})
+        
