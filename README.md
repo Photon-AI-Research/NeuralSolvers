@@ -169,7 +169,7 @@ You can use the HPM loss a follows.
 
 ```python
 
-der derivatives(x,u):
+def derivatives(x,u):
 	"""
 	Returns the derivatives
 	
