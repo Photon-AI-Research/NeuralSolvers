@@ -1,8 +1,14 @@
-# Neural Solvers :milky_way:
+
+<figure align="center">
+<img src="images/Transparent_Image_1.png" width="100%" />
+</figure>
+
+---
 
 <figure align="center">
 <img src="images/1D_Schroedinger_training.gif" width="50%" />
 </figure>
+
 
 # Introduction
 Neural Solvers are neural network based solver for partial differential equations and inverse problems. 
