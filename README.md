@@ -1,6 +1,6 @@
 
 <figure align="center">
-<img src="images/Transparent_Image_1.png" width="100%" />
+<img src="images/Transparent_Image_1.png" width="60%" />
 </figure>
 
 ---
