@@ -3,9 +3,6 @@
 <img src="images/1D_Schroedinger_training.gif" width="40%"/>
 </p>
 
----
-
-
 
 # Introduction
 Neural Solvers are neural network based solver for partial differential equations and inverse problems. 
