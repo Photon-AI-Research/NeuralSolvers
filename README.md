@@ -1,5 +1,5 @@
 <p float="left" align="center"> 
-<img src="images/Transparent_Image_1.png" width="40%" />
+<img src="images/cropped_logo.png" width="40%" />
 <img src="images/1D_Schroedinger_training.gif" width="40%"/>
 </p>
 
