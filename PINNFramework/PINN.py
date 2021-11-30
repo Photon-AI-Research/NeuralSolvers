@@ -6,6 +6,7 @@ from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
 from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC, TimeDerivativeBC
+from .PDELossAdaptive import PDELossAdaptive
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
@@ -90,7 +91,7 @@ class PINN(nn.Module):
         else:
             self.output_dimension = output_dimension
 
-        if isinstance(pde_loss, PDELoss):
+        if isinstance(pde_loss, (PDELoss, PDELossAdaptive)):
             self.pde_loss = pde_loss
             self.is_hpm = False
         else:
