@@ -16,25 +16,23 @@ if __name__ == "__main__":
     # Learning parameters
     parser.add_argument("--name", type=str)
     parser.add_argument("--epochs", type=int, default=1000)
-    parser.add_argument("--epochs_pt", type=int, default=50)
-    parser.add_argument("--learning_rate", type=float, default=1e-5)
+    parser.add_argument("--epochs_pt", type=int, default=10)
+    parser.add_argument("--learning_rate", type=float, default=1e-4)
     parser.add_argument("--use_gpu", type=int, default=1)
-    parser.add_argument("--use_horovod", type=int, default=1)
+    parser.add_argument("--use_horovod", type=int, default=0)
     parser.add_argument("--use_wandb", type=int, default=1)
     parser.add_argument("--weight", type=float, default=1.)
     parser.add_argument("--weight_hpm", type=float, default=1.)
     # Dataset parameters
     parser.add_argument("--path_data", type=str)
     parser.add_argument("--num_t", type=int)
-    parser.add_argument("--t_step", type=int, default=1)
+    parser.add_argument("--t_step", type=int, default=5)
     parser.add_argument("--pix_step", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=4096)
     parser.add_argument("--num_batches", type=int, default=28125)
     # Model parameters
     parser.add_argument("--hidden_size", type=int, default=500)
-    parser.add_argument("--num_hidden", type=int, default=8)
-    parser.add_argument("--hidden_size_hs", type=int, default=10)
-    parser.add_argument("--num_hidden_hs", type=int, default=1)
+    parser.add_argument("--num_hidden", type=int, default=3)
     parser.add_argument("--convection", type=int, default=1)
     parser.add_argument("--linear_u", type=int, default=1)
     parser.add_argument("--cold_bolus", type=int, default=0)
@@ -79,6 +77,20 @@ if __name__ == "__main__":
                           num_hidden=args.num_hidden,
                           lb=low_bound,
                           ub=up_bound)
+    
+    pinn_path = "/bigdata/hplsim/aipp/Maksim/default_best_model_pinn.pt"
+    model.load_state_dict(torch.load(pinn_path))
+    
+    # Heat source model
+    #     Input: spatiotemporal coordinates of a point x,y,t.
+    #     Output: temperature u at the point.    
+    hs_net = pf.models.MLP(input_size=3,
+                      output_size=1,
+                      hidden_size=100,
+                      num_hidden=1,
+                      lb=low_bound,
+                      ub=up_bound)
+    
     if args.pretrained:
         if len(args.pretrained_name):
             model.load_state_dict(load('./models/pretrained/' + args.pretrained_name + '.pt', map_location=device('cpu')))
@@ -87,11 +99,11 @@ if __name__ == "__main__":
     # HPM model: du/dt = convection + linear(u)
     #     Input: output of the derivatives function for a point x,y,t.
     #     Output: du/dt value for the point.
-    config = {'convection': 1, 'linear_u': 1}       
-    hpm_model = pf.models.PennesHPM(config)
+    config = {'convection': 1, 'linear_u': 1, 'heat_source':1}       
+    hpm_model = pf.models.PennesHPM(config, hs_net = hs_net)
     hpm_loss = pf.HPMLoss.HPMLoss(dataset=pde_dataset, hpm_input=derivatives, hpm_model=hpm_model, name="Pennes Equation", weight=args.weight_hpm)
+    logger = pf.WandbLogger('thermal_hpm', args)
     # Initialize and fit an physics-informed neural network
-    logger = pf.TensorBoardLogger('.')
     pinn = pf.PINN(
         model,
         input_dimension=8,
@@ -101,4 +113,4 @@ if __name__ == "__main__":
         boundary_condition=None,
         use_gpu=args.use_gpu,
         use_horovod=args.use_horovod)
-    pinn.fit(epochs=args.epochs, epochs_pt=args.epochs_pt, optimizer='Adam', learning_rate=args.learning_rate, lbfgs_finetuning=False, pinn_path='./models/' + args.name+'_best_model_pinn.pt', hpm_path='./models/' + args.name+'_best_model_hpm.pt', logger=logger)
+    pinn.fit(pretraining = args.epochs_pt, epochs=args.epochs, epochs_pt=args.epochs_pt, optimizer='Adam', learning_rate=args.learning_rate, lbfgs_finetuning=False, pinn_path='./models/' + args.name+'_best_model_pinn.pt', hpm_path='./models/' + args.name+'_best_model_hpm.pt', logger=logger, writing_cycle=1)
