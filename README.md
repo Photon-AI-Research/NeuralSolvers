@@ -1,8 +1,8 @@
-# Neural Solvers :milky_way:
+<p float="left" align="center"> 
+<img src="images/cropped_logo.png" width="40%" />
+<img src="images/1D_Schroedinger_training.gif" width="40%"/>
+</p>
 
-<figure align="center">
-<img src="images/1D_Schroedinger_training.gif" width="50%" />
-</figure>
 
 # Introduction
 Neural Solvers are neural network based solver for partial differential equations and inverse problems. 
@@ -169,7 +169,7 @@ You can use the HPM loss a follows.
 
 ```python
 
-der derivatives(x,u):
+def derivatives(x,u):
 	"""
 	Returns the derivatives
 	
