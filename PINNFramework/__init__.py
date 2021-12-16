@@ -6,6 +6,7 @@ from .BoundaryCondition import RobinBC
 from .BoundaryCondition import TimeDerivativeBC
 from .BoundaryCondition import NeumannBC
 from .PDELoss import PDELoss
+from .HPMLoss import HPMLoss
 from .Logger_Interface import LoggerInterface
 from .WandB_Logger import WandbLogger
 from .TensorBoard_Logger import TensorBoardLogger
