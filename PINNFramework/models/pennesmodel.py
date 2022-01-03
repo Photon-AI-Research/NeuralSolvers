@@ -13,7 +13,7 @@ class PennesHPM(Module):
             values: True (include term in the model) or False (do not include).
         u_blood (float): arterial blood temperature.
     """   
-    def __init__(self, config, u_blood = 37., spat_res = 0.3): 
+    def __init__(self, config, u_blood = 37., spat_res = 0.3, hs_net = None): 
         super().__init__()
         self.config = config
         self.u_blood = u_blood
@@ -23,6 +23,9 @@ class PennesHPM(Module):
         if config['linear_u']:
             self.a_linear_u_w = Parameter(Variable((randn([640,480]).clone().detach().requires_grad_(True))))
             self.a_linear_u_b = Parameter(Variable((randn([640,480]).clone().detach().requires_grad_(True))))
+        if config['heat_source']:
+            assert hs_net is not None
+            self.hs_net = hs_net
             
     def convection(self, derivatives): 
         """
@@ -54,6 +57,9 @@ class PennesHPM(Module):
         a_linear_u_w = self.a_linear_u_w[x_indices,y_indices].view(-1)
         a_linear_u_b = self.a_linear_u_b[x_indices,y_indices].view(-1)
         return a_linear_u_w*(u_values-self.u_blood) + a_linear_u_b
+    
+    def heat_source(self, derivatives):
+        return heat_source(derivatives[:,:3])
 
     def forward(self, derivatives):
         """
@@ -80,3 +86,4 @@ class PennesHPM(Module):
         if self.config['linear_u']:
             self.a_linear_u_w = self.a_linear_u_w.cuda()
             self.a_linear_u_b = self.a_linear_u_b.cuda()
+
