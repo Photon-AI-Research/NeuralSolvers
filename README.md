@@ -24,14 +24,23 @@ Large-scale Neural Solvers for Partial Differential Equations (2020).
 
 
 ## Implemented Approaches:
-```
-Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis.
+
+- P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
+Large-scale Neural Solvers for Partial Differential Equations (2020).
+
+
+- Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis.
 Physics Informed Deep Learning (Part I): Data-driven Solutions of Nonlinear Partial Differential Equations.(2017).
-```
-```
-Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis. 
+
+- Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis. 
 Physics Informed Deep Learning (Part II): Data-driven Discovery of Nonlinear Partial Differential Equations.(2017).
-```
+
+- Inverse Dirichlet Weighting Enables Reliable Training of Physics Informed Neural Networks
+Suryanarayana Maddu, Dominik Sturm, Christian L. Müller and Ivo F. Sbalzarini (2021)
+
+- Understanding and mitigating gradient pathologies in physics-informed neural networks
+Sifan Wang, Yujun Teng, Paris Perdikaris (2020)
+
 
 ## Requirements
 
