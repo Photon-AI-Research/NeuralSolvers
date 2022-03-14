@@ -5,8 +5,8 @@ from .BoundaryCondition import DirichletBC
 from .BoundaryCondition import RobinBC
 from .BoundaryCondition import TimeDerivativeBC
 from .BoundaryCondition import NeumannBC
-from .PDELoss import PDELoss
-from .PDELossAdaptive import PDELossAdaptive
+from .PDELoss import PDELoss, PDELossAdaptive
+#from .PDELossAdaptive import PDELossAdaptive
 from .Logger_Interface import LoggerInterface
 from .WandB_Logger import WandbLogger
 from .TensorBoard_Logger import TensorBoardLogger

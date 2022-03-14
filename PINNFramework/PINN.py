@@ -6,8 +6,8 @@ from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
 from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC, TimeDerivativeBC
-from .PDELossAdaptive import PDELossAdaptive
-from .PDELoss import PDELoss
+#from .PDELossAdaptive import PDELossAdaptive
+from .PDELoss import PDELoss, PDELossAdaptive
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
 from torch.autograd import grad as grad
