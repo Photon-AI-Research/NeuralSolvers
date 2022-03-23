@@ -6,7 +6,6 @@ from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
 from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC, TimeDerivativeBC
-#from .PDELossAdaptive import PDELossAdaptive
 from .PDELoss import PDELoss, PDELossAdaptive
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
@@ -97,6 +96,9 @@ class PINN(nn.Module):
         else:
             raise TypeError("PDE loss has to be an instance of a PDE Loss class")
 
+        if isinstance(pde_loss, PDELossAdaptive):
+            self.pde_loss.sampler.device = torch.device("cuda" if self.use_gpu else "cpu")
+            
         if isinstance(pde_loss, HPMLoss):
             self.is_hpm = True
             if self.use_gpu:
