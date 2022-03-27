@@ -11,9 +11,9 @@ class Geometry(Dataset):
             lb (numpy.ndarray): lower bound of the domain
             ub (numpy.ndarray): upper bound of the domain
         """
-        self.lb = lb
-        self.ub = ub
-        self.xf = np.concatenate([lb.reshape(1,-1), ub.reshape(1,-1)], axis = 0)
+        self.lb = lb.reshape(1,-1)
+        self.ub = ub.reshape(1,-1)
+        self.xf = np.concatenate([self.lb, self.ub], axis = 0)
 
     def __getitem__(self, idx):
 
