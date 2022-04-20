@@ -224,4 +224,5 @@ Nico Hoffmann (HZDR)
 ### Core Developers 
 Patrick Stiller (HZDR) <br/>
 Maksim Zhdanov (HZDR)<br/>
-Jeyhun Rustamov (HZDR)
+Jeyhun Rustamov (HZDR) <br/>
+Raj Dhansukhbhai Sutariya (HZDR) <br/>
