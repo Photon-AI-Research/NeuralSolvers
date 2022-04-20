@@ -35,11 +35,13 @@ Physics Informed Deep Learning (Part I): Data-driven Solutions of Nonlinear Part
 - Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis. 
 Physics Informed Deep Learning (Part II): Data-driven Discovery of Nonlinear Partial Differential Equations.(2017).
 
-- Inverse Dirichlet Weighting Enables Reliable Training of Physics Informed Neural Networks
-Suryanarayana Maddu, Dominik Sturm, Christian L. Müller and Ivo F. Sbalzarini (2021)
+- Suryanarayana Maddu, Dominik Sturm, Christian L. Müller and Ivo F. Sbalzarini (2021):
+Inverse Dirichlet Weighting Enables Reliable Training of Physics Informed Neural Networks
 
-- Understanding and mitigating gradient pathologies in physics-informed neural networks
-Sifan Wang, Yujun Teng, Paris Perdikaris (2020)
+
+-Sifan Wang, Yujun Teng, Paris Perdikaris (2020)
+Understanding and mitigating gradient pathologies in physics-informed neural networks
+
 
 
 ## Requirements
