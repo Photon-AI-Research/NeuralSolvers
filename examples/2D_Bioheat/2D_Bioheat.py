@@ -8,7 +8,7 @@ if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument("--identifier", type=str, default="UKD_DeepHPM")
-    parser.add_argument("--pData", type=str, default="/home/maxxxzdn/DeepHPM/ThermalImaging/data/")
+    parser.add_argument("--pData", type=str, default="")
     parser.add_argument("--epochs", type=int, default=1000)
     parser.add_argument("--nt", type=int, default=1000)
     parser.add_argument("--timeStep", type=int, default=25)

@@ -1,8 +1,8 @@
-# Neural Solvers :milky_way:
+<p float="left" align="center"> 
+<img src="images/cropped_logo.png" width="40%" />
+<img src="images/1D_Schroedinger_training.gif" width="40%"/>
+</p>
 
-<figure align="center">
-<img src="images/1D_Schroedinger_training.gif" width="50%" />
-</figure>
 
 # Introduction
 Neural Solvers are neural network based solver for partial differential equations and inverse problems. 
@@ -24,14 +24,25 @@ Large-scale Neural Solvers for Partial Differential Equations (2020).
 
 
 ## Implemented Approaches:
-```
-Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis.
+
+- P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
+Large-scale Neural Solvers for Partial Differential Equations (2020).
+
+
+- Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis.
 Physics Informed Deep Learning (Part I): Data-driven Solutions of Nonlinear Partial Differential Equations.(2017).
-```
-```
-Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis. 
+
+- Raissi, Maziar, Paris Perdikaris, and George Em Karniadakis. 
 Physics Informed Deep Learning (Part II): Data-driven Discovery of Nonlinear Partial Differential Equations.(2017).
-```
+
+- Suryanarayana Maddu, Dominik Sturm, Christian L. Müller and Ivo F. Sbalzarini (2021):
+Inverse Dirichlet Weighting Enables Reliable Training of Physics Informed Neural Networks
+
+
+-Sifan Wang, Yujun Teng, Paris Perdikaris (2020)
+Understanding and mitigating gradient pathologies in physics-informed neural networks
+
+
 
 ## Requirements
 
@@ -213,4 +224,5 @@ Nico Hoffmann (HZDR)
 ### Core Developers 
 Patrick Stiller (HZDR) <br/>
 Maksim Zhdanov (HZDR)<br/>
-Jeyhun Rustamov (HZDR)
+Jeyhun Rustamov (HZDR) <br/>
+Raj Dhansukhbhai Sutariya (HZDR) <br/>

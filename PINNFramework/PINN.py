@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from os.path import exists
+from datetime import datetime
 from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
@@ -108,12 +109,12 @@ class PINN(nn.Module):
             self.initial_condition = initial_condition
         else:
             raise TypeError("Initial condition has to be an instance of the InitialCondition class")
-            
+
         if not len(initial_condition.dataset):
             raise ValueError("Initial condition dataset is empty")
-                             
+
         if not len(pde_loss.dataset):
-            raise ValueError("PDE dataset is empty")   
+            raise ValueError("PDE dataset is empty")
 
         joined_datasets = {
             initial_condition.name: initial_condition.dataset,
@@ -122,7 +123,8 @@ class PINN(nn.Module):
         if self.rank == 0:
             self.loss_log[initial_condition.name] = float(0.0)  # adding initial condition to the loss_log
             self.loss_log[pde_loss.name] = float(0.0)
-            self.loss_log["model_loss_pinn"] = float(0.0)
+            if hasattr(self.model, 'loss'):
+                self.loss_log["model_loss_pinn"] = float(0.0)
 
         if not self.is_hpm:
             if type(boundary_condition) is list:
@@ -130,7 +132,7 @@ class PINN(nn.Module):
                     if not isinstance(bc, BoundaryCondition):
                         raise TypeError("Boundary Condition has to be an instance of the BoundaryCondition class ")
                     if not len(bc.dataset):
-                        raise ValueError("Boundary condition dataset is empty") 
+                        raise ValueError("Boundary condition dataset is empty")
                     joined_datasets[bc.name] = bc.dataset
                     if self.rank == 0:
                         self.loss_log[bc.name] = float(0.0)
@@ -286,17 +288,19 @@ class PINN(nn.Module):
         maximum_residual = torch.max(torch.abs(self.loss_gradients_storage[self.pde_loss.name]))
 
         # annealing initial condition
-        lambda_ic_head = maximum_residual / torch.mean(torch.abs(self.loss_gradients_storage[self.initial_condition.name]))
-        self.initial_condition.weight = (1-alpha) * self.initial_condition.weight + (alpha* lambda_ic_head)
+        lambda_ic_head = maximum_residual / torch.mean(
+            torch.abs(self.loss_gradients_storage[self.initial_condition.name]))
+        self.initial_condition.weight = (1 - alpha) * self.initial_condition.weight + (alpha * lambda_ic_head)
 
         # annealing boundary condition
         if isinstance(self.boundary_condition, list):
             for bc in self.boundary_condition:
                 # annealing initial condition
                 lambda_bc_head = maximum_residual / torch.mean(torch.abs(self.loss_gradients_storage[bc.name]))
-                bc.weight = (1-alpha) * bc.weight + alpha * lambda_bc_head
+                bc.weight = (1 - alpha) * bc.weight + alpha * lambda_bc_head
         else:
-            lambda_bc_head = maximum_residual / torch.mean(torch.abs(self.loss_gradients_storage[self.boundary_condition.name]))
+            lambda_bc_head = maximum_residual / torch.mean(
+                torch.abs(self.loss_gradients_storage[self.boundary_condition.name]))
             self.boundary_condition.weight = (1 - alpha) * self.boundary_condition.weight + alpha * lambda_bc_head
 
     def pinn_loss(self, training_data, track_gradient=False, annealing=False):
@@ -312,7 +316,7 @@ class PINN(nn.Module):
             annealing (Boolean): Activates automatic balancing of the loss terms
         """
         if annealing or track_gradient:
-            self.loss_gradients_storage = {} # creating an empty dictionary that holds the loss gradients with respect to the weights
+            self.loss_gradients_storage = {}  # creating an empty dictionary that holds the loss gradients with respect to the weights
         pinn_loss = 0
         # unpack training data
         # ============== PDE LOSS ============== "
@@ -557,6 +561,7 @@ class PINN(nn.Module):
         print("===== Pretraining =====")
         if pretraining:
             for epoch in range(start_epoch, epochs_pt):
+                epoch_start_time = datetime.now()
                 for x, y in data_loader_pt:
                     optim.zero_grad()
                     ic_loss = self.initial_condition(model=self.model, x=x.type(self.dtype), gt_y=y.type(self.dtype))
@@ -565,9 +570,13 @@ class PINN(nn.Module):
                 if not self.rank and not (epoch + 1) % writing_cycle_pt and checkpoint_path is not None:
                     self.write_checkpoint(checkpoint_path, epoch, True, minimum_pinn_loss, optim)
                 if not self.rank:
-                    print("IC Loss {} Epoch {} from {}".format(ic_loss, epoch+1, epochs_pt))
+                    epoch_end_time = datetime.now()
+                    time_taken = (epoch_end_time - epoch_start_time).total_seconds()
+                    print("[{}]:Epoch {:2d}/{} | IC Loss {:.15f} | Epoch Duration {:.5f}"
+                          .format(epoch_end_time, epoch + 1, epochs_pt, ic_loss, time_taken))
         print("===== Main training =====")
         for epoch in range(start_epoch, epochs):
+            epoch_start_time = datetime.now()
             # for parallel training the rank should also define the seed
             np.random.seed(42 + epoch + self.rank)
             batch_counter = 0.
@@ -584,10 +593,17 @@ class PINN(nn.Module):
                 del pinn_loss
 
             if not self.rank:
-                print("PINN Loss {} Epoch {} from {}".format(pinn_loss_sum / batch_counter, epoch+1, epochs), flush=True)
+                epoch_end_time = datetime.now()
+                time_taken = (epoch_end_time - epoch_start_time).total_seconds()
+                all_losses = " | ".join(
+                    ["{} loss: {:.6f}".format(key, value / batch_counter) for key, value in self.loss_log.items()])
+                print("[{}]:Epoch {:2d}/{} | PINN Loss {:.10f} | {} | Epoch Duration {:.5f}"
+                      .format(epoch_end_time, epoch + 1, epochs, pinn_loss_sum / batch_counter, all_losses, time_taken),
+                      flush=True
+                      )
 
                 if logger is not None and not (epoch+1) % writing_cycle:
-                    logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch)
+                    logger.log_scalar(scalar=pinn_loss_sum / batch_counter, name=" Weighted PINN Loss", epoch=epoch+1)
                     logger.log_scalar(scalar=sum(self.loss_log.values())/batch_counter,
                                       name=" Non-Weighted PINN Loss", epoch=epoch+1)
                     # Log values of the loss terms
@@ -635,7 +651,29 @@ class PINN(nn.Module):
         if lbfgs_finetuning:
             lbfgs_optim.step(closure)
             pinn_loss = self.pinn_loss(training_data)
-            print("After LBFGS-B: PINN Loss {} Epoch {} from {}".format(pinn_loss, epoch+1, epochs))
+            print("After LBFGS-B: PINN Loss: {} Epoch {} from {}".format(pinn_loss, epoch + 1, epochs))
             if (pinn_loss < minimum_pinn_loss) and not (epoch % writing_cycle) and save_model:
                 self.save_model(pinn_path, hpm_path)
 
+    def take_snapshot(model, file_path, device, n_points):
+        """
+        Calculates a model output on a regular 3D grid and saves it as a VTK data.
+        Args:
+            model (nn.Module): a model predicting a scalar. It must have 'lb' and 'ub' attributes.
+            file_path (str): a path of a file where VTK data will be saved.
+            device (str): the device where the given model is located.
+            n_points ([int,int,int]): number of points along each axis in the grid.        
+        """
+        assert len(model.lb) == 3  # Implemented only for 3D grid
+        from pyevtk.hl import imageToVTK
+        # evenly spaced numbers over a inteval specified by model.lb and model.ub 
+        x, y, z = [torch.linspace(model.lb[i], model.ub[i], n_points[i]) for i in range(len(model.lb))]
+        x, y, z = torch.meshgrid(x, y, z)
+        # create an input of shape [# points, 3]
+        input = torch.cat([x.unsqueeze(-1), y.unsqueeze(-1), z.unsqueeze(-1)], -1).view(-1, 3).to(device)
+        # calculate the model output via minibatches of size 64
+        output = torch.cat([model(input[k * 64:(k + 1) * 64]) for k in range((input.shape[0] // 64 + 1))], 0).view(-1)
+        # convert all tensors to numpy arrays and save as VTK data
+        grid = [x.numpy(), y.numpy(), z.numpy()]
+        output = output.view(n_points).to('cpu').numpy()
+        imageToVTK(file_path, grid, pointData={"model output": output})
