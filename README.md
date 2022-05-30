@@ -1,6 +1,6 @@
 <p float="left" align="center"> 
-<img src="images/cropped_logo.png" width="40%" />
-<img src="images/1D_Schroedinger_training.gif" width="40%"/>
+<img src="images/cropped_logo.png" width="20%" />
+<img src="images/1D_Schroedinger_training.gif" width="35%"/>
 </p>
 
 
