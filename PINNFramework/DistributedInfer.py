@@ -33,7 +33,6 @@ class DistributedInfer:
             torch.cuda.set_device(hvd.local_rank())
             rank = hvd.rank()
             total_processes = hvd.size()
-            total_processes = 5120
 
         # split the data and assign the data according to the horovod ranks
         datasize_per_process = math.ceil(data.shape[0] / total_processes)
@@ -45,9 +44,9 @@ class DistributedInfer:
 
         # get the predictions
         if not rank:
-            print("full data size", data.shape)
-            print("my data size:", infer_data.shape)
-            print(datasize_per_process)
+            print("Full data size", data.shape)
+            print("Rank-0 data size:", infer_data.shape)
+            print("Data size per process:", datasize_per_process)
         sub_prediction = self.model(infer_data)
 
         # save all the inferences in separate file
