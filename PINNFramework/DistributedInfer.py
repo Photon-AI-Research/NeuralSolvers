@@ -14,6 +14,16 @@ except:
 
 class DistributedInfer:
     def __init__(self, model, save_inferences=True, dir_name="predictions", use_horovod=True, use_gpu=True):
+        """
+            Constructor of the Distributed-Inference class
+
+            Args:
+                model (torch.nn.Module): the model to be used for inference
+                save_inferences (bool): if true, the predictions will be saved in a directory
+                dir_name (str): name of the directory to save the predictions
+                use_horovod (bool): if true, the inference will be done using Horovod
+                use_gpu (bool): if true, the inference will be done using GPU
+        """
         self.model = model
         self.save_inferences = save_inferences
         self.dir_name = dir_name
