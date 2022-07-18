@@ -7,6 +7,7 @@ from .BoundaryCondition import TimeDerivativeBC
 from .BoundaryCondition import NeumannBC
 from .PDELoss import PDELoss
 from .HPMLoss import HPMLoss
+from .DistributedInfer import DistributedInfer
 from .Logger_Interface import LoggerInterface
 from .WandB_Logger import WandbLogger
 from .TensorBoard_Logger import TensorBoardLogger
@@ -27,6 +28,7 @@ __all__ = [
     'HPMLoss',
     'PINN',
     'models',
+    'DistributedInfer'
     'LoggerInterface',
     'WandbLogger',
     'TensorBoardLogger',
