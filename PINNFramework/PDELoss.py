@@ -15,7 +15,7 @@ class PDELoss(LossTerm):
             norm: Norm used for calculation PDE loss
             weight: Weighting for the loss term
         """
-        super(PDELoss, self).__init__(dataset, name, norm, weight)
+        super(PDELoss, self).__init__(geometry, name, norm, weight)
         self.geometry = geometry
         self.pde = pde
 

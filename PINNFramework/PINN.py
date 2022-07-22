@@ -7,7 +7,7 @@ from itertools import chain
 from torch.utils.data import DataLoader
 from .InitalCondition import InitialCondition
 from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC, TimeDerivativeBC
-from .PDELoss import PDELoss, PDELossAdaptive
+from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
 from torch.autograd import grad as grad
@@ -91,14 +91,12 @@ class PINN(nn.Module):
         else:
             self.output_dimension = output_dimension
 
-        if isinstance(pde_loss, (PDELoss, PDELossAdaptive)):
+        if isinstance(pde_loss, (PDELoss)):
             self.pde_loss = pde_loss
             self.is_hpm = False
+            self.pde_loss.geometry.device = torch.device("cuda" if self.use_gpu else "cpu")
         else:
             raise TypeError("PDE loss has to be an instance of a PDE Loss class")
-
-        if isinstance(pde_loss, PDELossAdaptive):
-            self.pde_loss.sampler.device = torch.device("cuda" if self.use_gpu else "cpu")
             
         if isinstance(pde_loss, HPMLoss):
             self.is_hpm = True
@@ -113,12 +111,8 @@ class PINN(nn.Module):
         if not len(initial_condition.dataset):
             raise ValueError("Initial condition dataset is empty")
 
-        if not len(pde_loss.dataset):
-            raise ValueError("PDE dataset is empty")
-
         joined_datasets = {
-            initial_condition.name: initial_condition.dataset,
-            pde_loss.name: pde_loss.dataset
+            initial_condition.name: initial_condition.dataset
         }
         if self.rank == 0:
             self.loss_log[initial_condition.name] = float(0.0)  # adding initial condition to the loss_log
@@ -320,8 +314,11 @@ class PINN(nn.Module):
         pinn_loss = 0
         # unpack training data
         # ============== PDE LOSS ============== "
-        if type(training_data[self.pde_loss.name]) is not list:
-            pde_loss = self.pde_loss(training_data[self.pde_loss.name][0].type(self.dtype), self.model)
+        if self.is_hpm and self.pde_loss.geometry.sampler == 'adaptive':        
+            raise ValueError("Adaptive sampler is not available for HPM. Only 'random' and 'LHS' samplers are available for HPM")
+        points = self.pde_loss.geometry.sample_points(self.model, self.pde_loss.pde)
+        if type(points) is not list:
+            pde_loss = self.pde_loss(points.type(self.dtype), self.model)
             if annealing or track_gradient:
                 self.loss_gradients_storage[self.pde_loss.name] = self.loss_gradients(pde_loss)
             pinn_loss = pinn_loss + self.pde_loss.weight * pde_loss

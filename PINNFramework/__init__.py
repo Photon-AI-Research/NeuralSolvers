@@ -11,9 +11,8 @@ from .Logger_Interface import LoggerInterface
 from .WandB_Logger import WandbLogger
 from .TensorBoard_Logger import TensorBoardLogger
 from .PINN import PINN
-from .Sampler import Sampler
-from .Geometry import Geometry
-from .PDELoss import PDELossAdaptive
+from . import Sampler
+from .NDCube import NDCube
 
 import PINNFramework.models
 import PINNFramework.callbacks
@@ -27,9 +26,8 @@ __all__ = [
     'NeumannBC',
     'TimeDerivativeBC',
     'PDELoss',
-    'PDELossAdaptive',
     'Sampler',
-    'Geometry'
+    'NDCube'
     'HPMLoss',
     'PINN',
     'models',
