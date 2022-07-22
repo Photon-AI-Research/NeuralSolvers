@@ -1,24 +1,25 @@
-from torch.utils.data import Dataset
+import torch
 import numpy as np
-from torch import Tensor, ones, stack, load
+from abc import ABC, abstractmethod
 
-class Geometry(Dataset):
-    def __init__(self, lb, ub):
+class Geometry(ABC):
+    def __init__(self, lb, ub, num_points, sampler= 'pseudo', device = torch.device("cuda")):
         """
         Constructor of the Geometry class
 
         Args:
-            lb (numpy.ndarray): lower bound of the domain
-            ub (numpy.ndarray): upper bound of the domain
+            lb (numpy.ndarray): lower bound of the domain.
+            ub (numpy.ndarray): upper bound of the domain.
+            num_points (int): the number of sampled points.
+            sampler (string): sampling method: "pseudo" (pseudorandom), "LHS" (Latin hypercube sampling), and "adaptive" method.
+            device (torch.device): "cuda" or "cpu".
         """
-        self.lb = lb.reshape(1,-1)
-        self.ub = ub.reshape(1,-1)
-        self.xf = np.concatenate([self.lb, self.ub], axis = 0)
+        self.lb = lb
+        self.ub = ub
+        self.num_points = num_points
+        self.sampler = sampler
+        self.device = device
 
-    def __getitem__(self, idx):
-
-        return Tensor(self.xf).float()
-
-    def __len__(self):
-
-        return 1
+    @abstractmethod 
+    def sample_points(self):
+        """Sample points within the geometry."""
