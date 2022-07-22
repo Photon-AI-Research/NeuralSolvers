@@ -24,4 +24,4 @@ class NDCube(Geometry):
         print('self.sampler',self.sampler)
         print('self.device',self.device)
         print('type device',type(self.device))
-        return sample(self.lb, self.ub, model, pde, self.num_points, self.sampler, self.num_seed, self.device)
+        return sample(self.lb, self.ub, self.num_points, self.sampler, self.num_seed, model, pde, self.device)

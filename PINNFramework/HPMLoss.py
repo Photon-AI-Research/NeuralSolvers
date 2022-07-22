@@ -1,18 +1,18 @@
 from .PDELoss import PDELoss
 
 class HPMLoss(PDELoss):
-    def __init__(self, dataset, name, hpm_input, hpm_model, norm='L2', weight=1.):
+    def __init__(self, geometry, name, hpm_input, hpm_model, norm='L2', weight=1.):
         """
         Constructor of the HPM loss
         Args:
-            dataset (torch.utils.Dataset): dataset that provides the residual points
+            geometry: instance of the geometry class that defines the domain
             hpm_input(function): function that calculates the needed input for the HPM model. The hpm_input function
             should return a list of tensors, where the last entry is the time_derivative
             hpm_model (torch.nn.Module): model for the HPM, represents the underlying PDE
             norm: Norm used for calculation PDE loss
             weight: Weighting for the loss term
         """
-        super(HPMLoss, self).__init__(dataset, None, name, norm='L2', weight=1.)
+        super(HPMLoss, self).__init__(geometry, None, name, norm='L2', weight=1.)
         self.hpm_input = hpm_input
         self.hpm_model = hpm_model
 
