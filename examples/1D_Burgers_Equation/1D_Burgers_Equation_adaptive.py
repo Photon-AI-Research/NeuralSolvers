@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-sys.path.append('../..')  # PINNFramework etc.
+sys.path.append('NeuralSolvers/')  # PINNFramework etc.
 import PINNFramework as pf
 
 
@@ -97,11 +97,9 @@ if __name__ == "__main__":
         return f
     
     # geometry of the domain
-    geometry = pf.Geometry(lb, ub)
+    geometry = pf.NDCube(lb,ub,n_points = N_f, sampler ='adaptive', n_seed = 2000)
 
-    # sampler
-    sampler = pf.Sampler(geometry,num_points=10000,ns=1000, sampler ='adaptive')
-    pde_loss = pf.PDELossAdaptive(geometry, burger1D, sampler, name='1D Burgers')
+    pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers')
 
     # create model
     model = pf.models.MLP(input_size=2, output_size=1,
