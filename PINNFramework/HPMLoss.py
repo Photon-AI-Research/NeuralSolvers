@@ -4,6 +4,7 @@ class HPMLoss(PDELoss):
     def __init__(self, geometry, name, hpm_input, hpm_model, norm='L2', weight=1.):
         """
         Constructor of the HPM loss
+        
         Args:
             geometry: instance of the geometry class that defines the domain
             hpm_input(function): function that calculates the needed input for the HPM model. The hpm_input function

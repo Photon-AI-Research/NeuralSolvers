@@ -91,7 +91,7 @@ class PINN(nn.Module):
         else:
             self.output_dimension = output_dimension
 
-        if isinstance(pde_loss, (PDELoss)):
+        if isinstance(pde_loss, PDELoss):
             self.pde_loss = pde_loss
             self.is_hpm = False
             self.pde_loss.geometry.device = torch.device("cuda" if self.use_gpu else "cpu")
@@ -314,8 +314,8 @@ class PINN(nn.Module):
         pinn_loss = 0
         # unpack training data
         # ============== PDE LOSS ============== "
-        if self.is_hpm and self.pde_loss.geometry.sampler == 'adaptive':        
-            raise ValueError("Adaptive sampler is not available for HPM. Only 'random' and 'LHS' samplers are available for HPM")
+        if self.is_hpm and self.pde_loss.geometry.sampler == 'adaptive':  
+            raise ValueError("'Adaptive' sampler is not available for HPM. Only 'random' and 'LHS' samplers are available for HPM")
         points = self.pde_loss.geometry.sample_points(self.model, self.pde_loss.pde)
         if type(points) is not list:
             pde_loss = self.pde_loss(points.type(self.dtype), self.model)
