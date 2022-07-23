@@ -137,36 +137,6 @@ class InitialConditionDataset(Dataset):
 
 
 
-class PDEDataset(Dataset):
-    
-    def __init__(self, nf, lb, ub):
-        """
-        Constructor of the PDE dataset
-
-        Args:
-          nf (int)
-          lb (numpy.ndarray)
-          ub (numpy.ndarray)
-        """
-        self.xf = lb + (ub - lb) * lhs(2, nf)
-
-    def __getitem__(self, idx):
-        """
-        Returns data at given index
-        Args:
-            idx (int)
-        """
-        return Tensor(self.xf).float()
-
-    def __len__(self):
-        """
-        There exists no batch processing. So the size is 1
-        """
-        return 1
-
-
-
-
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=10000, help='Number of training iterations')
@@ -198,8 +168,8 @@ if __name__ == "__main__":
     dirichlet_bc_u_lb = pf.DirichletBC(func, bc_datasetlb, name= 'ulb dirichlet boundary condition')
     dirichlet_bc_u_ub = pf.DirichletBC(func, bc_datasetub, name= 'uub dirichlet boundary condition')
 
-    # PDE
-    pde_dataset = PDEDataset(args.nf, lb, ub)
+    # geometry of the domain
+    geometry = pf.NDCube(lb,ub,n_points = args.nf, sampler ='LHS')
 
     def heat1d(x, u):
 
@@ -225,7 +195,7 @@ if __name__ == "__main__":
 
         return f
 
-    pde_loss = pf.PDELoss(pde_dataset, heat1d, name='1D Heat', weight = 1)
+    pde_loss = pf.PDELoss(geometry, heat1d, name='1D Heat', weight = 1)
     
     # create model
     model = pf.models.MLP(input_size=2,

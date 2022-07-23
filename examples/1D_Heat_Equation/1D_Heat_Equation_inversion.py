@@ -64,34 +64,6 @@ class InitialConditionDataset(Dataset):
 
 
 
-class PDEDataset(Dataset):
-    
-    def __init__(self, nf, lb, ub):
-        """
-        Constructor of the PDE dataset
-
-        Args:
-          nf (int)
-          lb (numpy.ndarray)
-          ub (numpy.ndarray)
-        """
-        self.xf = lb + (ub - lb) * lhs(2, nf)
-
-    def __getitem__(self, idx):
-        """
-        Returns data at given index
-        Args:
-            idx (int)
-        """
-        return Tensor(self.xf).float()
-
-    def __len__(self):
-        """
-        There exists no batch processing. So the size is 1
-        """
-        return 1
-
-
 
 
 if __name__ == "__main__":
@@ -113,9 +85,10 @@ if __name__ == "__main__":
     # initial condition
     ic_dataset = InitialConditionDataset(n0=args.n0)
     initial_condition = pf.InitialCondition(ic_dataset, name='Interpolation condition')
+    
+    # geometry
+    geometry = pf.NDCube(lb,ub,n_points = args.nf, sampler ='LHS')
 
-    # PDE
-    pde_dataset = PDEDataset(args.nf, lb, ub)
 
     def derivatives(x, u):
 
@@ -155,7 +128,7 @@ if __name__ == "__main__":
     wandb.watch(hpm_model)
     print(hpm_model.c)
     #pde_loss = pf.PDELoss(pde_dataset, heat1d, name='1D Heat', weight = 1)
-    pde_loss = pf.HPMLoss(pde_dataset, "HPM_loss", derivatives, hpm_model)
+    pde_loss = pf.HPMLoss(geometry, "HPM_loss", derivatives, hpm_model)
     
     # create model
     model = pf.models.MLP(input_size=2,

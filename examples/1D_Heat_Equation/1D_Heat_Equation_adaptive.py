@@ -194,13 +194,10 @@ if __name__ == "__main__":
         return f
     
     # geometry of the domain
-    geometry = pf.Geometry(lb, ub)
-
-    # sampler
-    sampler = pf.Sampler(geometry,num_points=args.nf, ns=args.ns, sampler ='adaptive')
+    geometry = pf.NDCube(lb,ub,n_points = args.nf, sampler ='adaptive', n_seed = args.ns)
 
     # pde loss
-    pde_loss = pf.PDELossAdaptive(geometry, heat1d, sampler, name='1D Heat' )
+    pde_loss = pf.PDELoss(geometry, heat1d, name='1D Heat')
     
     # create model
     model = pf.models.MLP(input_size=2,
