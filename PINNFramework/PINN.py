@@ -316,16 +316,21 @@ class PINN(nn.Module):
         # ============== PDE LOSS ============== "
         if self.is_hpm and self.pde_loss.geometry.sampler == 'adaptive':  
             raise ValueError("'Adaptive' sampler is not available for HPM. Only 'random' and 'LHS' samplers are available for HPM")
+            
         points = self.pde_loss.geometry.sample_points(self.model, self.pde_loss.pde)
         if type(points) is not list:
-            pde_loss = self.pde_loss(points.type(self.dtype), self.model)
+            if type(points) is tuple:
+                x = tuple([p.type(self.dtype) for p in points])
+                pde_loss = self.pde_loss(x, self.model)
+            else: 
+                pde_loss = self.pde_loss(points.type(self.dtype), self.model) 
             if annealing or track_gradient:
                 self.loss_gradients_storage[self.pde_loss.name] = self.loss_gradients(pde_loss)
             pinn_loss = pinn_loss + self.pde_loss.weight * pde_loss
             if self.rank == 0:
                 self.loss_log[self.pde_loss.name] = pde_loss + self.loss_log[self.pde_loss.name]
         else:
-            raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
+            raise ValueError("Training Data for PDE data is either a single tensor consisting of residual points or a tuple of residual points and corresponding weights ")
 
         # ============== INITIAL CONDITION ============== "
         if type(training_data[self.initial_condition.name]) is list:

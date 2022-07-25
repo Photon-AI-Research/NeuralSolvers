@@ -26,10 +26,10 @@ class PDELoss(LossTerm):
         x: residual points
         model: model that predicts the solution of the PDE
         """
+
         if self.geometry.sampler == 'adaptive':
-            w = x[:,-1]
-            x = x[:,:-1]
-            
+            x,w = x
+        
         x.requires_grad = True  # setting requires grad to true in order to calculate
         u = model.forward(x)
         pde_residual = self.pde(x, u, **kwargs)

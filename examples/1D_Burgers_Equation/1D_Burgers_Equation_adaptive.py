@@ -97,7 +97,7 @@ if __name__ == "__main__":
         return f
     
     # geometry of the domain
-    geometry = pf.NDCube(lb,ub,n_points = N_f, sampler ='adaptive', n_seed = 2000)
+    geometry = pf.NDCube(lb,ub,n_points = N_f, sampler ='adaptive', n_seed = 5000)
 
     pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers')
 

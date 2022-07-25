@@ -5,16 +5,18 @@ from pyDOE import lhs
 
 # set initial seed for torch and numpy
 seed = 42
+torch.manual_seed(seed)
+np.random.seed(seed)
 
 
 def sample(lb, ub, n_points, sampler, n_seed, model, pde, device = torch.device("cuda:0")):
-    """Generate sample points in [lb,ub] using random, LHS or adaptive sampling methods. Returns either sampled points ("random", "LHS") or concatenated tensor of sampled points with corresponding weights ("adaptive").
+    """Generate sample points in [lb,ub] using random, LHS or adaptive sampling methods. Returns either sampled points ("random", "LHS") or tuple of sampled points with corresponding weights ("adaptive").
     
     Args:
         lb (numpy.ndarray): lower bound of the domain.
         ub (numpy.ndarray): upper bound of the domain.
         n_points (int): the number of sampled points.
-        sampler (string): sampling method: "random" (pseudorandom), "LHS" (Latin hypercube sampling), and "adaptive" method.
+        sampler (string): "random" (pseudorandom), "LHS" (Latin hypercube sampling), and "adaptive" sampling method.
         n_seed (int): the number of seed points for adaptive sampling.
         model: is the model which is trained to represent the underlying PDE.
         pde (function): function that represents residual of the PDE.
@@ -39,8 +41,7 @@ def pseudorandom(lb, ub, n_points):
         ub (numpy.ndarray): upper bound of the domain.
         n_points (int): the number of sampled points.
     """
-    
-    np.random.seed(seed)
+    #np.random.seed(seed)
     dimension = lb.shape[1]
     xf = np.random.uniform(lb,ub,size=(n_points, dimension))
     return torch.tensor(xf).float()
@@ -53,13 +54,13 @@ def quasirandom(lb, ub, n_points):
         ub (numpy.ndarray): upper bound of the domain.
         n_points (int): the number of sampled points.
     """
-    np.random.seed(seed)
+    #np.random.seed(seed)
     dimension = lb.shape[1]
     xf = lb + (ub - lb) * lhs(dimension, n_points)
     return torch.tensor(xf).float()
     
 def adaptive(lb, ub, n_points, n_seed, model, pde, device):
-    """Adaptive sampling. Returns concatenated tensor of sampled points in [lb,ub] and corresponding weights.
+    """Adaptive sampling. Returns tuple of sampled points in [lb,ub] and corresponding weights.
     Args:
         lb (numpy.ndarray): lower bound of the domain.
         ub (numpy.ndarray): upper bound of the domain.
@@ -69,8 +70,8 @@ def adaptive(lb, ub, n_points, n_seed, model, pde, device):
         pde (function): function that represents residual of the PDE.
         device (torch.device): "cuda" or "cpu".
     """
-    np.random.seed(seed)
-    torch.manual_seed(seed)
+    #np.random.seed(seed)
+    #torch.manual_seed(seed)
 
     dimension = lb.shape[1]
     xs = np.random.uniform(lb, ub, size=(n_seed, dimension))
@@ -104,8 +105,10 @@ def adaptive(lb, ub, n_points, n_seed, model, pde, device):
 
     # obtain 'n_points' indices sampled from the multinomial distribution
     indicies_new = torch.multinomial(q_model[:, 0], n_points, replacement=True)
-
+    
     # collocation points and corresponding weights
     xf = xf[indicies_new]
     weight = q_model[indicies_new].detach()
-    return torch.cat((xf,weight), 1)
+    weight = torch.mean(weight, 1, True)
+
+    return xf, weight
