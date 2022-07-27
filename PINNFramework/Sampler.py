@@ -10,13 +10,16 @@ np.random.seed(seed)
 
 
 def sample(lb, ub, n_points, sampler, n_seed, model, pde, device = torch.device("cuda:0")):
-    """Generate sample points in [lb,ub] using random, LHS or adaptive sampling methods. Returns either sampled points ("random", "LHS") or tuple of sampled points with corresponding weights ("adaptive").
+    """Generate sample points in [lb,ub] using "random", "LHS" or "adaptive" sampling methods.
+    Returns either sampled points (for "random", "LHS" methods) or a tuple of sampled points
+    with corresponding weights (for "adaptive" method).
     
     Args:
         lb (numpy.ndarray): lower bound of the domain.
         ub (numpy.ndarray): upper bound of the domain.
         n_points (int): the number of sampled points.
-        sampler (string): "random" (pseudorandom), "LHS" (Latin hypercube sampling), and "adaptive" sampling method.
+        sampler (string): "random" (pseudorandom), "LHS" (Latin hypercube sampling),
+        and "adaptive" sampling method.
         n_seed (int): the number of seed points for adaptive sampling.
         model: is the model which is trained to represent the underlying PDE.
         pde (function): function that represents residual of the PDE.
