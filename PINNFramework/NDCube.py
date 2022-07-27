@@ -12,7 +12,8 @@ class NDCube(Geometry):
             lb (numpy.ndarray): lower bound of the domain.
             ub (numpy.ndarray): upper bound of the domain.
             n_points (int): the number of sampled points.
-            sampler (string): sampling method: "random" (pseudorandom), "LHS" (Latin hypercube sampling), and "adaptive" method.
+            sampler (string): "random" (pseudorandom), "LHS" (Latin hypercube sampling),
+            and "adaptive" sampling methods.
             n_seed (int): the number of seed points for adaptive sampling
             device (torch.device): "cuda" or "cpu".
         """
