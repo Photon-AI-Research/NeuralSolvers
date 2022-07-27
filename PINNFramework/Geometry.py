@@ -11,7 +11,8 @@ class Geometry(ABC):
             lb (numpy.ndarray): lower bound of the domain.
             ub (numpy.ndarray): upper bound of the domain.
             n_points (int): the number of sampled points.
-            sampler (string): "random" (pseudorandom), "LHS" (Latin hypercube sampling), and "adaptive" sampling method.
+            sampler (string): "random" (pseudorandom), "LHS" (Latin hypercube sampling),
+            and "adaptive" sampling method.
             device (torch.device): "cuda" or "cpu".
         """
         self.lb = lb
