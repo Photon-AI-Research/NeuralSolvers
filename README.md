@@ -56,13 +56,13 @@ openmpi/3.1.2
 
 ### Python requirements
 ```
-torch==1.7.1 
-h5py==2.10.0
-numpy==1.19.0
-Pillow==7.2.0
-matplotlib==3.3.3
-scipy==1.6.1
-pyDOE==0.3.8
+torch>=1.7.1 
+h5py>=2.10.0
+numpy>=1.19.0
+Pillow>=7.2.0
+matplotlib>=3.3.3
+scipy>=1.6.1
+pyDOE>=0.3.8
 ```
 
 ## Usage of Interface
