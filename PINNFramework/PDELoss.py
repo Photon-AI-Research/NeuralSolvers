@@ -2,6 +2,7 @@ import torch
 from torch import Tensor as Tensor
 from torch.nn import Module as Module
 from .LossTerm import LossTerm
+from .Adaptive_Sampler import AdaptiveSampler
 
 
 class PDELoss(LossTerm):
@@ -27,15 +28,16 @@ class PDELoss(LossTerm):
         model: model that predicts the solution of the PDE
         """
 
-        if self.geometry.sampler == 'adaptive':
-            x,w = x
+        if isinstance(self.geometry.sampler, AdaptiveSampler):
+            w = x[:,-1:]
+            x = x[:,:-1]
         
         x.requires_grad = True  # setting requires grad to true in order to calculate
         u = model.forward(x)
         pde_residual = self.pde(x, u, **kwargs)
         
-        if self.geometry.sampler == 'adaptive':
-            return 1 / self.geometry.n_points * torch.mean(1 / w * pde_residual ** 2)
+        if isinstance(self.geometry.sampler, AdaptiveSampler):
+            return 1 / self.geometry.sampler.n_points * torch.mean(1 / w * pde_residual ** 2)
         else:
             zeros = torch.zeros(pde_residual.shape, device=pde_residual.device)
             return self.norm(pde_residual, zeros)

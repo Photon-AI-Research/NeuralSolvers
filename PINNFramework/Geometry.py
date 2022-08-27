@@ -1,26 +1,24 @@
 import torch
 import numpy as np
-from abc import ABC, abstractmethod
+from torch.utils.data import Dataset
 
-class Geometry(ABC):
-    def __init__(self, lb, ub, n_points, sampler= 'LHS', device = torch.device("cuda")):
+class Geometry(Dataset):
+    def __init__(self, lb, ub, sampler):
         """
         Constructor of the Geometry class
 
         Args:
             lb (numpy.ndarray): lower bound of the domain.
             ub (numpy.ndarray): upper bound of the domain.
-            n_points (int): the number of sampled points.
-            sampler (string): "random" (pseudorandom), "LHS" (Latin hypercube sampling),
-            and "adaptive" sampling method.
-            device (torch.device): "cuda" or "cpu".
+            sampler: instance of the Sampler class.
         """
         self.lb = lb
         self.ub = ub
-        self.n_points = n_points
-        self.sampler = sampler
-        self.device = device
+        self.sampler = sampler 
 
-    @abstractmethod 
-    def sample_points(self):
-        """Sample points within the geometry."""
+    def __getitem__(self, idx):
+        raise NotImplementedError("Subclasses should implement '__getitem__' method")
+
+    def __len__(self):
+        raise NotImplementedError("Subclasses should implement '__len__' method")
+
