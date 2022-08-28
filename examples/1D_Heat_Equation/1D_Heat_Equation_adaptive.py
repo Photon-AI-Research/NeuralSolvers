@@ -142,7 +142,8 @@ if __name__ == "__main__":
     parser.add_argument('--n0', dest='n0', type=int, default=50, help='Number of input points for initial condition')
     parser.add_argument('--nb', dest='nb', type=int, default=50, help='Number of input points for boundary condition')
     parser.add_argument('--nf', dest='nf', type=int, default=20000, help='Number of input points for pde loss')
-    parser.add_argument('--ns', dest='ns', type=int, default=5000, help='Number of seed points')
+    parser.add_argument('--ns', dest='ns', type=int, default=10000, help='Number of seed points')
+    parser.add_argument('--nf_batch', dest='nf_batch', type=int, default=20000, help='Batch size for sampler')
     parser.add_argument('--num_hidden', dest='num_hidden', type=int, default=4, help='Number of hidden layers')
     parser.add_argument('--hidden_size', dest='hidden_size', type=int, default=100, help='Size of hidden layers')
     parser.add_argument('--annealing', dest='annealing', type=int, default=0, help='Enables annealing with 1')
@@ -193,12 +194,6 @@ if __name__ == "__main__":
 
         return f
     
-    # geometry of the domain
-    geometry = pf.NDCube(lb,ub,n_points = args.nf, sampler ='adaptive', n_seed = args.ns)
-
-    # pde loss
-    pde_loss = pf.PDELoss(geometry, heat1d, name='1D Heat')
-    
     # create model
     model = pf.models.MLP(input_size=2,
                           output_size=1,
@@ -206,7 +201,16 @@ if __name__ == "__main__":
                           num_hidden=args.num_hidden,
                           lb=lb,
                           ub=ub)
+    # sampler
+    sampler = pf.AdaptiveSampler(n_points = args.nf, model=model, pde = heat1d, n_seed= args.ns, batch_size = args.nf_batch)
     
+    # geometry of the domain
+    geometry = pf.NDCube(lb,ub,sampler)
+
+    # pde loss
+    pde_loss = pf.PDELoss(geometry, heat1d, name='1D Heat')
+    
+
     # create PINN instance
     pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_u_lb,dirichlet_bc_u_ub], use_gpu=True)
     

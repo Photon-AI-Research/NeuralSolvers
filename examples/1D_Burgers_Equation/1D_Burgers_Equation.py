@@ -77,8 +77,12 @@ if __name__ == "__main__":
     ic_dataset = InitialConditionDataset(n0=N_u)
     initial_condition = pf.InitialCondition(ic_dataset, name='Initial condition')
 
+    #sampler
+    sampler = pf.LHSSampler(n_points = N_f, batch_size = N_f)
+    #sampler = pf.RandomSampler(n_points= N_f, batch_size = N_f)
+    
     # geometry
-    geometry = pf.NDCube(lb,ub,n_points = N_f, sampler ='LHS')
+    geometry = pf.NDCube(lb,ub,sampler)
 
     # define underlying PDE
     def burger1D(x, u):

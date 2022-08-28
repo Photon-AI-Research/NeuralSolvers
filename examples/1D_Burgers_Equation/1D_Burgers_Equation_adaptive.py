@@ -96,14 +96,18 @@ if __name__ == "__main__":
         f = u_t + u * u_x - (0.01 / np.pi) * u_xx
         return f
     
-    # geometry of the domain
-    geometry = pf.NDCube(lb,ub,n_points = N_f, sampler ='adaptive', n_seed = 5000)
-
-    pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers')
-
     # create model
     model = pf.models.MLP(input_size=2, output_size=1,
                           hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
+    
+    # sampler
+    sampler = pf.AdaptiveSampler(n_points = N_f, model=model, pde = burger1D, n_seed= 5000, batch_size = N_f)
+    
+    # geometry of the domain
+    geometry = pf.NDCube(lb,ub,sampler)
+
+    pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers')
+
     # create PINN instance
     pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=True)
 

@@ -143,6 +143,7 @@ if __name__ == "__main__":
     parser.add_argument('--n0', dest='n0', type=int, default=50, help='Number of input points for initial condition')
     parser.add_argument('--nb', dest='nb', type=int, default=50, help='Number of input points for boundary condition')
     parser.add_argument('--nf', dest='nf', type=int, default=20000, help='Number of input points for pde loss')
+    parser.add_argument('--nf_batch', dest='nf_batch', type=int, default=20000, help='Batch size for sampler')
     parser.add_argument('--num_hidden', dest='num_hidden', type=int, default=4, help='Number of hidden layers')
     parser.add_argument('--hidden_size', dest='hidden_size', type=int, default=100, help='Size of hidden layers')
     parser.add_argument('--annealing', dest='annealing', type=int, default=0, help='Enables annealing with 1')
@@ -168,8 +169,12 @@ if __name__ == "__main__":
     dirichlet_bc_u_lb = pf.DirichletBC(func, bc_datasetlb, name= 'ulb dirichlet boundary condition')
     dirichlet_bc_u_ub = pf.DirichletBC(func, bc_datasetub, name= 'uub dirichlet boundary condition')
 
-    # geometry of the domain
-    geometry = pf.NDCube(lb,ub,n_points = args.nf, sampler ='LHS')
+    #sampler
+    sampler = pf.LHSSampler(n_points = args.nf, batch_size = args.nf_batch)
+    #sampler = pf.RandomSampler(n_points= args.nf, batch_size = args.nf_batch)
+    
+    # geometry
+    geometry = pf.NDCube(lb,ub,sampler)
 
     def heat1d(x, u):
 

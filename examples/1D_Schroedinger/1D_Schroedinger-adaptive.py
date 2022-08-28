@@ -85,6 +85,7 @@ if __name__ == "__main__":
     parser.add_argument('--nb', dest='nb', type=int, default=50, help='Number of input points for boundary condition')
     parser.add_argument('--nf', dest='nf', type=int, default=20000, help='Number of input points for pde loss')
     parser.add_argument('--ns', dest='ns', type=int, default=10000, help='Number of seed points')
+    parser.add_argument('--nf_batch', dest='nf_batch', type=int, default=20000, help='Batch size for sampler')
     parser.add_argument('--num_hidden', dest='num_hidden', type=int, default=4, help='Number of hidden layers')
     parser.add_argument('--hidden_size', dest='hidden_size', type=int, default=100, help='Size of hidden layers')
     parser.add_argument('--annealing', dest='annealing', type=int, default=0, help='Enables annealing with 1')
@@ -103,9 +104,6 @@ if __name__ == "__main__":
     periodic_bc_v = pf.PeriodicBC(bc_dataset, 1, "v periodic boundary condition")
     periodic_bc_u_x = pf.PeriodicBC(bc_dataset, 0, "u_x periodic boundary condition", 1, 0)
     periodic_bc_v_x = pf.PeriodicBC(bc_dataset, 1, "v_x periodic boundary condition", 1, 0)
-    
-    # geometry of the domain
-    geometry = pf.NDCube(lb,ub,n_points = args.nf, sampler ='adaptive', n_seed = args.ns)
 
 
     def schroedinger1d(x, u):
@@ -134,15 +132,22 @@ if __name__ == "__main__":
         f_v = v_t - 0.5 * u_xx - (u ** 2 + v ** 2) * u
 
         return stack([f_u, f_v], 1)  # concatenate real part and imaginary part
-
-
-    pde_loss = pf.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
+    
     model = pf.models.MLP(input_size=2,
-                          output_size=2,
-                          hidden_size=args.hidden_size,
-                          num_hidden=args.num_hidden,
-                          lb=lb,
-                          ub=ub)
+                      output_size=2,
+                      hidden_size=args.hidden_size,
+                      num_hidden=args.num_hidden,
+                      lb=lb,
+                      ub=ub)
+
+    # sampler
+    sampler = pf.AdaptiveSampler(n_points = args.nf, model=model, pde = schroedinger1d, n_seed= args.ns, batch_size = args.nf_batch)
+    
+    # geometry of the domain
+    geometry = pf.NDCube(lb,ub,sampler)
+    
+    pde_loss = pf.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
+
 
     logger = pf.WandbLogger('1D Schrödinger Equation', args, 'aipp')
     pinn = pf.PINN(model, 2, 2, pde_loss, initial_condition, [periodic_bc_u,
