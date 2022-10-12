@@ -3,16 +3,18 @@ import torch
 from .Geometry import Geometry
 
 class NDCube(Geometry):
-    def __init__(self, lb, ub, sampler):
+    def __init__(self, lb, ub, n_points, batch_size, sampler):
         """
         Constructor of the NDCube class
 
         Args:
             lb (numpy.ndarray): lower bound of the domain.
             ub (numpy.ndarray): upper bound of the domain.
+            n_points (int): the number of sampled points.
+            batch_size (int): batch size
             sampler: instance of the Sampler class.
         """
-        super(NDCube, self).__init__(lb,ub,sampler)
+        super(NDCube, self).__init__(lb, ub, n_points, batch_size, sampler)
         
         
     def __getitem__(self, idx):
@@ -21,16 +23,14 @@ class NDCube(Geometry):
         Args:
             idx (int)
         """
-        self.x = self.sampler.sample(self.lb,self.ub) 
+        self.x = self.sampler.sample(self.lb,self.ub, self.batch_size) 
         
         if type(self.x) is tuple:
             x, w = self.x
-            x = x[idx * self.sampler.batch_size: (idx + 1) * self.sampler.batch_size]
-            w = w[idx * self.sampler.batch_size: (idx + 1) * self.sampler.batch_size]
             return torch.cat((x, w), 1)
-        else:           
-            return self.x[idx * self.sampler.batch_size: (idx + 1) * self.sampler.batch_size]
+        else:
+            return self.x
 
     def __len__(self):
         """Length of the dataset"""
-        return self.sampler.num_batches
+        return self.n_points // self.batch_size

@@ -37,7 +37,7 @@ class PDELoss(LossTerm):
         pde_residual = self.pde(x, u, **kwargs)
         
         if isinstance(self.geometry.sampler, AdaptiveSampler):
-            return 1 / self.geometry.sampler.n_points * torch.mean(1 / w * pde_residual ** 2)
+            return 1 / self.geometry.batch_size * torch.mean(1 / w * pde_residual ** 2)
         else:
             zeros = torch.zeros(pde_residual.shape, device=pde_residual.device)
             return self.norm(pde_residual, zeros)

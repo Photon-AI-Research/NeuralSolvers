@@ -4,23 +4,19 @@ from .Sampler import Sampler
 
 
 class RandomSampler(Sampler):
-    def __init__(self, n_points, batch_size):
+    def __init__(self):
         """
-        Constructor of the RandomSampler (pseudo random sampler) class
-
-        Args:
-            n_points (int): the number of sampled points.
-            batch_size (int): batch size
+        Constructor of the RandomSampler (pseudo random sampler) class       
         """
-        super(RandomSampler, self).__init__(n_points, batch_size)
-        
+        super(RandomSampler, self).__init__()        
 
-    def sample(self, lb, ub):
-        """Generate sample points in [lb,ub]
+    def sample(self, lb, ub, n):
+        """Generate 'n' number of sample points in [lb,ub]
         
         Args:
             lb (numpy.ndarray): lower bound of the domain.
             ub (numpy.ndarray): upper bound of the domain.
+            n (int): the number of sampled points.
         """
             
         torch.manual_seed(42)
@@ -30,5 +26,5 @@ class RandomSampler(Sampler):
         ub =  ub.reshape(1,-1)
         
         dimension = lb.shape[1]
-        xf = np.random.uniform(lb,ub,size=(self.n_points, dimension))
+        xf = np.random.uniform(lb,ub,size=(n, dimension))
         return torch.tensor(xf).float()
