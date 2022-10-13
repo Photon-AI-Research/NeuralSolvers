@@ -202,10 +202,10 @@ if __name__ == "__main__":
                           lb=lb,
                           ub=ub)
     # sampler
-    sampler = pf.AdaptiveSampler(n_points = args.nf, model=model, pde = heat1d, n_seed= args.ns, batch_size = args.nf_batch)
+    sampler = pf.AdaptiveSampler(args.ns, model, heat1d)
     
     # geometry of the domain
-    geometry = pf.NDCube(lb,ub,sampler)
+    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
 
     # pde loss
     pde_loss = pf.PDELoss(geometry, heat1d, name='1D Heat')

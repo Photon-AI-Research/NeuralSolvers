@@ -101,18 +101,20 @@ if __name__ == "__main__":
                           hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
     
     # sampler
-    sampler = pf.AdaptiveSampler(n_points = N_f, model=model, pde = burger1D, n_seed= 5000, batch_size = N_f)
+    sampler = pf.AdaptiveSampler(5000, model, burger1D)
     
     # geometry of the domain
-    geometry = pf.NDCube(lb,ub,sampler)
+    geometry = pf.NDCube(lb,ub,N_f,N_f,sampler)
 
     pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers')
 
     # create PINN instance
     pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=True)
+    
+    logger = pf.WandbLogger("1D Burgers equation pinn", args = {})
 
     # train pinn
-    pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, lbfgs_finetuning=False, writing_cycle=1000)
+    pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
 
 
 

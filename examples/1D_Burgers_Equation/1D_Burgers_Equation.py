@@ -78,11 +78,11 @@ if __name__ == "__main__":
     initial_condition = pf.InitialCondition(ic_dataset, name='Initial condition')
 
     #sampler
-    sampler = pf.LHSSampler(n_points = N_f, batch_size = N_f)
-    #sampler = pf.RandomSampler(n_points= N_f, batch_size = N_f)
+    sampler = pf.LHSSampler()
+    #sampler = pf.RandomSampler()
     
     # geometry
-    geometry = pf.NDCube(lb,ub,sampler)
+    geometry = pf.NDCube(lb,ub,N_f,N_f,sampler)
 
     # define underlying PDE
     def burger1D(x, u):
@@ -112,8 +112,10 @@ if __name__ == "__main__":
     # create PINN instance
     pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=True)
 
+    logger = pf.WandbLogger("1D Burgers equation pinn", args = {})
+    
     # train pinn
-    pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, lbfgs_finetuning=False, writing_cycle=1000)
+    pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
 
 
 

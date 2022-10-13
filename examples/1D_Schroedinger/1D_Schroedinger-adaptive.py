@@ -141,10 +141,10 @@ if __name__ == "__main__":
                       ub=ub)
 
     # sampler
-    sampler = pf.AdaptiveSampler(n_points = args.nf, model=model, pde = schroedinger1d, n_seed= args.ns, batch_size = args.nf_batch)
+    sampler = pf.AdaptiveSampler(args.ns, model, schroedinger1d)
     
     # geometry of the domain
-    geometry = pf.NDCube(lb,ub,sampler)
+    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
     
     pde_loss = pf.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
 

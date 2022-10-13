@@ -105,11 +105,11 @@ if __name__ == "__main__":
     periodic_bc_v_x = pf.PeriodicBC(bc_dataset, 1, "v_x periodic boundary condition", 1, 0)
     
     #sampler
-    sampler = pf.LHSSampler(n_points = args.nf, batch_size = args.nf_batch)
-    #sampler = pf.RandomSampler(n_points= args.nf, batch_size = args.nf_batch)
+    sampler = pf.LHSSampler()
+    #sampler = pf.RandomSampler()
     
     # geometry
-    geometry = pf.NDCube(lb,ub,sampler)
+    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
 
     def schroedinger1d(x, u):
         pred = u

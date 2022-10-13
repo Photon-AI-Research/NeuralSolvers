@@ -88,11 +88,11 @@ if __name__ == "__main__":
     initial_condition = pf.InitialCondition(ic_dataset, name='Interpolation condition')
       
     #sampler
-    sampler = pf.LHSSampler(n_points = args.nf, batch_size = args.nf_batch)
-    #sampler = pf.RandomSampler(n_points= args.nf, batch_size = args.nf_batch)
+    sampler = pf.LHSSampler()
+    #sampler = pf.RandomSampler()
     
     # geometry
-    geometry = pf.NDCube(lb,ub,sampler)
+    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
 
     def derivatives(x, u):
 
