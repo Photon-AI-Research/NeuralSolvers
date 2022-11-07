@@ -61,12 +61,10 @@ class InitialConditionDataset(Dataset):
         return Tensor(x).float(), Tensor(y).float()
 
 
-
 if __name__ == "__main__":
     # Domain bounds
     lb = np.array([-1, 0.0])
     ub = np.array([1.0, 1.0])
-    
     nu = 0.01 / np.pi
     noise = 0.0
 
@@ -76,13 +74,6 @@ if __name__ == "__main__":
     # initial condition
     ic_dataset = InitialConditionDataset(n0=N_u)
     initial_condition = pf.InitialCondition(ic_dataset, name='Initial condition')
-
-    #sampler
-    sampler = pf.LHSSampler()
-    #sampler = pf.RandomSampler()
-    
-    # geometry
-    geometry = pf.NDCube(lb,ub,N_f,N_f,sampler)
 
     # define underlying PDE
     def burger1D(x, u):
@@ -104,16 +95,24 @@ if __name__ == "__main__":
 
         f = u_t + u * u_x - (0.01 / np.pi) * u_xx
         return f
-
-    pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers equation')
+    
     # create model
     model = pf.models.MLP(input_size=2, output_size=1,
                           hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
+    
+    # sampler
+    sampler = pf.AdaptiveSampler(5000, model, burger1D)
+    
+    # geometry of the domain
+    geometry = pf.NDCube(lb,ub,N_f,N_f,sampler)
+
+    pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers')
+
     # create PINN instance
     pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=True)
-
-    logger = pf.WandbLogger("1D Burgers equation pinn", args = {})
     
+    logger = pf.WandbLogger("1D Burgers equation pinn", args = {})
+
     # train pinn
     pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
 

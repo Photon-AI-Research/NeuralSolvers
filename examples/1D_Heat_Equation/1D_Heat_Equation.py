@@ -137,42 +137,13 @@ class InitialConditionDataset(Dataset):
 
 
 
-class PDEDataset(Dataset):
-    
-    def __init__(self, nf, lb, ub):
-        """
-        Constructor of the PDE dataset
-
-        Args:
-          nf (int)
-          lb (numpy.ndarray)
-          ub (numpy.ndarray)
-        """
-        self.xf = lb + (ub - lb) * lhs(2, nf)
-
-    def __getitem__(self, idx):
-        """
-        Returns data at given index
-        Args:
-            idx (int)
-        """
-        return Tensor(self.xf).float()
-
-    def __len__(self):
-        """
-        There exists no batch processing. So the size is 1
-        """
-        return 1
-
-
-
-
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=10000, help='Number of training iterations')
     parser.add_argument('--n0', dest='n0', type=int, default=50, help='Number of input points for initial condition')
     parser.add_argument('--nb', dest='nb', type=int, default=50, help='Number of input points for boundary condition')
     parser.add_argument('--nf', dest='nf', type=int, default=20000, help='Number of input points for pde loss')
+    parser.add_argument('--nf_batch', dest='nf_batch', type=int, default=20000, help='Batch size for sampler')
     parser.add_argument('--num_hidden', dest='num_hidden', type=int, default=4, help='Number of hidden layers')
     parser.add_argument('--hidden_size', dest='hidden_size', type=int, default=100, help='Size of hidden layers')
     parser.add_argument('--annealing', dest='annealing', type=int, default=0, help='Enables annealing with 1')
@@ -198,8 +169,12 @@ if __name__ == "__main__":
     dirichlet_bc_u_lb = pf.DirichletBC(func, bc_datasetlb, name= 'ulb dirichlet boundary condition')
     dirichlet_bc_u_ub = pf.DirichletBC(func, bc_datasetub, name= 'uub dirichlet boundary condition')
 
-    # PDE
-    pde_dataset = PDEDataset(args.nf, lb, ub)
+    #sampler
+    sampler = pf.LHSSampler()
+#     sampler = pf.RandomSampler()
+    
+    # geometry
+    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
 
     def heat1d(x, u):
 
@@ -225,7 +200,7 @@ if __name__ == "__main__":
 
         return f
 
-    pde_loss = pf.PDELoss(pde_dataset, heat1d, name='1D Heat', weight = 1)
+    pde_loss = pf.PDELoss(geometry, heat1d, name='1D Heat', weight = 1)
     
     # create model
     model = pf.models.MLP(input_size=2,

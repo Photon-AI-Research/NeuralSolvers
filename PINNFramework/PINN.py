@@ -10,6 +10,7 @@ from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, Neuma
 from .PDELoss import PDELoss
 from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
+from .Adaptive_Sampler import AdaptiveSampler
 from torch.autograd import grad as grad
 from PINNFramework.callbacks import CallbackList
 
@@ -96,11 +97,14 @@ class PINN(nn.Module):
             self.is_hpm = False
         else:
             raise TypeError("PDE loss has to be an instance of a PDE Loss class")
-
+            
         if isinstance(pde_loss, HPMLoss):
             self.is_hpm = True
             if self.use_gpu:
                 self.pde_loss.hpm_model.cuda()
+        
+        if isinstance(pde_loss.geometry.sampler, AdaptiveSampler):
+            self.pde_loss.geometry.sampler.device = torch.device("cuda" if self.use_gpu else "cpu")
 
         if isinstance(initial_condition, InitialCondition):
             self.initial_condition = initial_condition
@@ -110,12 +114,12 @@ class PINN(nn.Module):
         if not len(initial_condition.dataset):
             raise ValueError("Initial condition dataset is empty")
 
-        if not len(pde_loss.dataset):
-            raise ValueError("PDE dataset is empty")
-
+        if not len(pde_loss.geometry):
+            raise ValueError("Geometry is empty")
+                             
         joined_datasets = {
             initial_condition.name: initial_condition.dataset,
-            pde_loss.name: pde_loss.dataset
+            pde_loss.name: pde_loss.geometry
         }
         if self.rank == 0:
             self.loss_log[initial_condition.name] = float(0.0)  # adding initial condition to the loss_log
@@ -318,14 +322,14 @@ class PINN(nn.Module):
         # unpack training data
         # ============== PDE LOSS ============== "
         if type(training_data[self.pde_loss.name]) is not list:
-            pde_loss = self.pde_loss(training_data[self.pde_loss.name][0].type(self.dtype), self.model)
+            pde_loss = self.pde_loss(training_data[self.pde_loss.name][0].type(self.dtype), self.model)             
             if annealing or track_gradient:
                 self.loss_gradients_storage[self.pde_loss.name] = self.loss_gradients(pde_loss)
             pinn_loss = pinn_loss + self.pde_loss.weight * pde_loss
             if self.rank == 0:
                 self.loss_log[self.pde_loss.name] = pde_loss + self.loss_log[self.pde_loss.name]
         else:
-            raise ValueError("Training Data for PDE data is a single tensor consists of residual points ")
+            raise ValueError("Training Data for PDE data is either a single tensor consisting of residual points or a concatenation of residual points and corresponding weights ")
 
         # ============== INITIAL CONDITION ============== "
         if type(training_data[self.initial_condition.name]) is list:

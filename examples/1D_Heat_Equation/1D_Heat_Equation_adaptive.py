@@ -15,8 +15,83 @@ from matplotlib.colors import LogNorm
 import wandb 
 
 
+
+
 sys.path.append("NeuralSolvers/")  # PINNFramework etc.
 import PINNFramework as pf
+
+
+
+
+class BoundaryConditionDatasetlb(Dataset):
+    
+    def __init__(self, nb, lb, ub):
+        """
+        Constructor of the lower boundary condition dataset
+
+        Args:
+          nb (int)
+          lb (numpy.ndarray)
+          ub (numpy.ndarray)
+        """
+        super(type(self)).__init__()
+        
+        # maximum of the time domain
+        max_t = 2
+        t = np.linspace(0,max_t,200).flatten()[:, None]
+        idx_t = np.random.choice(t.shape[0], nb, replace=False)
+        tb = t[idx_t, :]
+        self.x_lb = np.concatenate((0 * tb + lb[0], tb), 1)  # (lb[0], tb)
+        
+    def __getitem__(self, idx):
+        """
+        Returns data at given index
+        Args:
+            idx (int)
+        """
+        return Tensor(self.x_lb).float()
+    def __len__(self):
+        """
+        There exists no batch processing. So the size is 1
+        """
+        return 1
+
+
+
+
+class BoundaryConditionDatasetub(Dataset):
+
+    def __init__(self, nb, lb, ub):
+        """
+        Constructor of the upper boundary condition dataset
+
+        Args:
+          nb (int)
+          lb (numpy.ndarray)
+          ub (numpy.ndarray)
+        """
+        super(type(self)).__init__()
+    
+        # maximum of the time domain
+        max_t = 2
+        t = np.linspace(0,max_t,200).flatten()[:, None]
+        idx_t = np.random.choice(t.shape[0], nb, replace=False)
+        tb = t[idx_t, :]
+        self.x_ub = np.concatenate((0 * tb + ub[0], tb), 1)  # (ub[0], tb)
+
+    def __getitem__(self, idx):
+        """
+        Returns data at given index
+        Args:
+            idx (int)
+        """
+        return Tensor(self.x_ub).float()
+    def __len__(self):
+        """
+        There exists no batch processing. So the size is 1
+        """
+        return 1
+
 
 
 
@@ -30,25 +105,23 @@ class InitialConditionDataset(Dataset):
           n0 (int)
         """
         super(type(self)).__init__()
+
         L=1               
         c=1               
         alpha = (c*np.pi/L)**2
-        max_t = 10
+        max_t = 2
         max_x = L
 
-        t = np.linspace(0,max_t,200)
-        x = np.linspace(0, max_x, 200)
-        X, T = np.meshgrid(x, t, indexing='ij')
+        t = np.zeros(200).flatten()[:, None]
+        x = np.linspace(0,max_x,200).flatten()[:, None]
 
-        U=(np.exp(-(alpha)*T))*np.sin(np.pi*X/L)
-        U = U.reshape(-1, 1)
-        X = X.reshape(-1, 1)
-        T = T.reshape(-1, 1)
+        U=(np.exp(-(alpha)*t))*np.sin(np.pi*x/L)
+        u=U.flatten()[:, None]
 
-        idx_x = np.random.choice(X.shape[0], n0, replace=False)
-        self.x = X[idx_x, :]
-        self.u = U[idx_x, :]
-        self.t = T[idx_x, :]
+        idx_x = np.random.choice(x.shape[0], n0, replace=False)
+        self.x = x[idx_x,:]
+        self.u = u[idx_x,:]
+        self.t = t[idx_x,:]
 
     def __len__(self):
         """
@@ -63,15 +136,13 @@ class InitialConditionDataset(Dataset):
 
 
 
-
-
-
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--num_epochs", dest="num_epochs", type=int, default=10000, help='Number of training iterations')
-    parser.add_argument('--n0', dest='n0', type=int, default=10000, help='Number of input points for initial condition')
+    parser.add_argument('--n0', dest='n0', type=int, default=50, help='Number of input points for initial condition')
     parser.add_argument('--nb', dest='nb', type=int, default=50, help='Number of input points for boundary condition')
     parser.add_argument('--nf', dest='nf', type=int, default=20000, help='Number of input points for pde loss')
+    parser.add_argument('--ns', dest='ns', type=int, default=10000, help='Number of seed points')
     parser.add_argument('--nf_batch', dest='nf_batch', type=int, default=20000, help='Batch size for sampler')
     parser.add_argument('--num_hidden', dest='num_hidden', type=int, default=4, help='Number of hidden layers')
     parser.add_argument('--hidden_size', dest='hidden_size', type=int, default=100, help='Size of hidden layers')
@@ -82,19 +153,24 @@ if __name__ == "__main__":
     # Domain bounds
     lb = np.array([0, 0.0])
     ub = np.array([1.0, 2.0])
-
+    
     # initial condition
     ic_dataset = InitialConditionDataset(n0=args.n0)
-    initial_condition = pf.InitialCondition(ic_dataset, name='Interpolation condition')
-      
-    #sampler
-    sampler = pf.LHSSampler()
-    #sampler = pf.RandomSampler()
+    initial_condition = pf.InitialCondition(ic_dataset, name='Initial condition')
     
-    # geometry
-    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
+    # boundary conditions
+    bc_datasetlb = BoundaryConditionDatasetlb(nb=args.nb, lb=lb, ub=ub)
+    bc_datasetub = BoundaryConditionDatasetub(nb=args.nb, lb=lb, ub=ub)
+    
+    # Function for dirichlet boundary condition
+    def func(x):
+        return  torch.zeros_like(x)[:,0].reshape(-1,1)
+    
+    dirichlet_bc_u_lb = pf.DirichletBC(func, bc_datasetlb, name= 'ulb dirichlet boundary condition')
+    dirichlet_bc_u_ub = pf.DirichletBC(func, bc_datasetub, name= 'uub dirichlet boundary condition')
 
-    def derivatives(x, u):
+
+    def heat1d(x, u):
 
         grads = ones(u.shape, device=u.device) # move to the same device as prediction
         grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]
@@ -110,29 +186,13 @@ if __name__ == "__main__":
 
         # reshape for correct behavior of the optimizer
         u_x = u_x.reshape(-1, 1)
-        u_t = u_t.reshape(-1,1)
-        u_xx = u_xx.reshape(-1,1)
-        return torch.cat([u_xx, u_t],dim=1)
+        u_t = u_t.reshape(-1, 1)
+        u_xx = u_xx.reshape(-1, 1)
+        
+        # residual function
+        f = u_t - 1 * u_xx
 
-    class HPM_model(torch.nn.Module):
-
-        def __init__(self):
-            super().__init__()
-            self.c = torch.nn.Parameter(torch.randn(1), requires_grad=True)
-            print(self.c)
-
-        def forward(self, derivatives):
-            print(self.c)
-            dt = self.c * derivatives
-            return dt
-
-
-    logger = pf.WandbLogger("1D Heat equation pinn", args)
-    hpm_model = HPM_model()
-    wandb.watch(hpm_model)
-    print(hpm_model.c)
-    #pde_loss = pf.PDELoss(pde_dataset, heat1d, name='1D Heat', weight = 1)
-    pde_loss = pf.HPMLoss(geometry, "HPM_loss", derivatives, hpm_model)
+        return f
     
     # create model
     model = pf.models.MLP(input_size=2,
@@ -141,16 +201,24 @@ if __name__ == "__main__":
                           num_hidden=args.num_hidden,
                           lb=lb,
                           ub=ub)
+    # sampler
+    sampler = pf.AdaptiveSampler(args.ns, model, heat1d)
     
-    # create PINN instance
-    pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition,boundary_condition=None, use_gpu=True)
+    # geometry of the domain
+    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
+
+    # pde loss
+    pde_loss = pf.PDELoss(geometry, heat1d, name='1D Heat')
     
 
+    # create PINN instance
+    pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_u_lb,dirichlet_bc_u_ub], use_gpu=True)
+    
+    logger = pf.WandbLogger("1D Heat equation pinn",args)
     
     # train pinn
-    pinn.fit(args.num_epochs, epochs_pt=200,checkpoint_path=None, restart=True, logger=logger, lbfgs_finetuning=False, pretraining=True)
-    print(hpm_model.c)
-    pinn.load_model('best_model_pinn.pt', 'best_model_hpm.pt')
+    pinn.fit(args.num_epochs, checkpoint_path='checkpoint.pt', restart=True, logger=logger,lbfgs_finetuning=False, pretraining = True)
+    pinn.load_model('best_model_pinn.pt')
 
     #Plotting
     max_t = 2
@@ -158,14 +226,14 @@ if __name__ == "__main__":
 
     t = np.linspace(0,max_t,200).flatten()[:, None]
     x = np.linspace(0,max_x,200).flatten()[:, None]
-    X, T = np.meshgrid(x, t, indexing='ij')
+    X, T = np.meshgrid(x, t)
 
     X_star = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
     pred = pinn(Tensor(X_star).cuda())
     pred_u = pred.detach().cpu().numpy()
     
     H_pred = pred_u.reshape(X.shape)
-    plt.imshow(H_pred, interpolation='nearest', cmap='YlGnBu',
+    plt.imshow(H_pred.T, interpolation='nearest', cmap='YlGnBu',
                 extent= [lb[1], ub[1], lb[0], ub[0]],
                 origin='lower', aspect='auto')
     plt.ylabel('x (cm)')
