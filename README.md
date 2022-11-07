@@ -21,8 +21,6 @@ Large-scale Neural Solvers for Partial Differential Equations (2020).
 
 ```
 
-
-
 ## Implemented Approaches:
 
 - P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
@@ -39,9 +37,11 @@ Physics Informed Deep Learning (Part II): Data-driven Discovery of Nonlinear Par
 Inverse Dirichlet Weighting Enables Reliable Training of Physics Informed Neural Networks
 
 
--Sifan Wang, Yujun Teng, Paris Perdikaris (2020)
+- Sifan Wang, Yujun Teng, Paris Perdikaris (2020)
 Understanding and mitigating gradient pathologies in physics-informed neural networks
 
+-Mohammad Amin Nabian, Rini Jasmine Gladstone, Hadi Meidani (2021)
+efficient training of physics-informed neural networks via importance sampling
 
 
 ## Requirements
