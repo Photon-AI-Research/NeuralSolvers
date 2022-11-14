@@ -40,7 +40,7 @@ Inverse Dirichlet Weighting Enables Reliable Training of Physics Informed Neural
 - Sifan Wang, Yujun Teng, Paris Perdikaris (2020)
 Understanding and mitigating gradient pathologies in physics-informed neural networks
 
--Mohammad Amin Nabian, Rini Jasmine Gladstone, Hadi Meidani (2021)
+- Mohammad Amin Nabian, Rini Jasmine Gladstone, Hadi Meidani (2021)
 efficient training of physics-informed neural networks via importance sampling
 
 
