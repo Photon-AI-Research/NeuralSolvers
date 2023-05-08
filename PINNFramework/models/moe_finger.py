@@ -129,7 +129,7 @@ class MoE(nn.Module):
     """Call a Sparsely gated mixture of experts layer with 1-layer Feed-Forward networks as experts.
     Args:
     input_size: integer - size of the input
-    output_size: integer - size of the input
+    output_size: integer - size of the output
     num_experts: an integer - number of experts
     hidden_size: an integer - hidden size of the experts
     noisy_gating: a boolean
@@ -155,7 +155,7 @@ class MoE(nn.Module):
         # instantiate experts
         # normalization of the MLPs is disabled cause the Gating Network performs the normalization
         self.experts = nn.ModuleList([
-            FingerNet(lb, ub, hidden_size, num_hidden, activation, False)
+            FingerNet(lb, ub, input_size, output_size, hidden_size, num_hidden, activation = activation, normalize = False)
             for _ in range(self.num_experts)
         ])
 
@@ -167,7 +167,7 @@ class MoE(nn.Module):
         if self.use_gpu:
             self.normal = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
         else:
-            self.normal = Normal(torch.tensor([0.0]).cuda(), torch.tensor([1.0]).cuda())
+            self.normal = Normal(torch.tensor([0.0]), torch.tensor([1.0]))
         
         self.non_linear = non_linear
         if self.non_linear:
@@ -233,13 +233,13 @@ class MoE(nn.Module):
         if self.use_gpu:
             threshold_positions_if_in = (torch.arange(batch) * m + self.k).cuda()
         else:
-            threshold_positions_if_in = (torch.arange(batch) * m + self.k).cuda()
+            threshold_positions_if_in = torch.arange(batch) * m + self.k
         threshold_if_in = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_in), 1)
         is_in = torch.gt(noisy_values, threshold_if_in)
         if self.use_gpu:
             threshold_positions_if_out = (threshold_positions_if_in - 1).cuda()
         else:
-            threshold_positions_if_out = (threshold_positions_if_in - 1).cuda()
+            threshold_positions_if_out = threshold_positions_if_in - 1
 
         threshold_if_out = torch.unsqueeze(torch.gather(top_values_flat, 0, threshold_positions_if_out), 1)
         # is each value currently in the top k.
