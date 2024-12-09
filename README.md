@@ -65,6 +65,26 @@ We encourage you to explore this example to get a feel for how Neural Solvers wo
 For more advanced usage and additional examples, please refer to the Examples section below.
 
 ## 3. Basic Usage
+Here's a simple example of how to use the PINN class:
+
+```python
+import NeuralSolvers as nsolv
+
+# Set up your problem
+pde_loss = nsolv.PDELoss(...)
+initial_condition = nsolv.InitialCondition(...)
+boundary_condition = nsolv.DirichletBC(...)
+
+# Create and train the PINN
+pinn = nsolv.PINN(model, input_dim, output_dim, pde_loss, initial_condition, boundary_condition)
+pinn.fit(epochs=1000, learning_rate=1e-3)
+
+# Use the trained PINN
+solution = pinn(x_test)
+```
+
+In the following, we will be diving into details of each step.
+
 ### 3.1. Define datasets for co-location points
 
 ```python
@@ -176,7 +196,17 @@ logger = nsolv.TensorBoardLogger(log_directory)
 pinn.fit(epochs=5000, logger=logger)
 ```
 
-### 4.4. Implemented Approaches:
+### 4.4 Adaptive Sampling
+
+Neural Solvers now supports adaptive sampling to focus computational resources on regions of high error:
+
+```python
+sampler = nsolv.AdaptiveSampler(num_points, model, pde_function)
+geometry = nsolv.NDCube(lb, ub, num_points, num_points, sampler, device=device)
+```
+
+
+### 4.5 Implemented Approaches:
 
 - P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
 Large-scale Neural Solvers for Partial Differential Equations (2020).
