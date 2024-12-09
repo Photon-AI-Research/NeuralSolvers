@@ -13,7 +13,7 @@ import torch.nn as nn
 from torch.distributions.normal import Normal
 import numpy as np
 import torch.nn.functional as F
-from PINNFramework.models import MLP
+from NeuralSolvers.models import MLP
 
 class SparseDispatcher(object):
     """Helper for implementing a mixture of experts.

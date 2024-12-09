@@ -68,10 +68,11 @@ pyDOE>=0.3.8
 ## Usage of Interface
 
 At the beginning you have to implement the datasets following the torch.utils.Dataset interface
+
 ```python
 from torch.utils.data import Dataset
-sys.path.append(PATH_TO_PINN_FRAMEWORK)  # adding the pinn framework to your path
-import PINNFramework as pf
+import NeuralSolvers as nsolv
+
 
 class BoundaryConditionDataset(Dataset):
 
@@ -79,12 +80,11 @@ class BoundaryConditionDataset(Dataset):
         """
         Constructor of the initial condition dataset
 		"""
-		
+
     def __getitem__(self, idx):
         """
         Returns data for initial state
         """
-       
 
     def __len__(self):
         """
@@ -100,17 +100,15 @@ class InitialConditionDataset(Dataset):
 
         """
 
-
     def __len__(self):
         """
 		Length of the dataset
         """
-        
 
     def __getitem__(self, idx):
-		"""
-		Returns item at given index
-		"""
+        """
+        Returns item at given index
+        """
 
 
 class PDEDataset(Dataset):
@@ -118,18 +116,17 @@ class PDEDataset(Dataset):
         """
 		Constructor of the PDE dataset
 		"""
-	
+
     def __len__(self):
         """
 		Length of the dataset
         """
-        
 
     def __getitem__(self, idx):
-		"""
-		Returns item at given index
-		"""
-		
+        """
+        Returns item at given index
+        """
+
 ```
 
 In the main function you can create the loss-terms and the corresponding datasets. 
@@ -142,13 +139,13 @@ if __name__ == main :
 
     # initial condition
     ic_dataset = InitialConditionDataset(...)
-    initial_condition = pf.InitialCondition(dataset=ic_dataset)
+    initial_condition = nsolv.InitialCondition(dataset=ic_dataset)
     # boundary conditions
     bc_dataset = BoundaryConditionDataset(...)
-    periodic_bc_u = pf.PeriodicBC(...)
-    periodic_bc_v = pf.PeriodicBC(...)
-    periodic_bc_u_x = pf.RobinBC(...)
-    periodic_bc_v_x = pf.NeumannBC(...)
+    periodic_bc_u = nsolv.PeriodicBC(...)
+    periodic_bc_v = nsolv.PeriodicBC(...)
+    periodic_bc_u_x = nsolv.RobinBC(...)
+    periodic_bc_v_x = nsolv.NeumannBC(...)
     # PDE 
 	pde_dataset = PDEDataset(...)
 
@@ -161,14 +158,14 @@ if __name__ == main :
 		"""
 
 
-    pde_loss = pf.PDELoss(dataset=pde_dataset, func=f)
+    pde_loss = nsolv.PDELoss(dataset=pde_dataset, func=f)
 
 ```
 
 Finally you can create a model which is the surrogate for the PDE and create the PINN enviorment which helps you to train the surrogate.
 ```python
-model = pf.models.MLP(input_size=2, output_size=2, hidden_size=100, num_hidden=4) # creating a model. For example a mlp
-pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True)
+model = nsolv.models.MLP(input_size=2, output_size=2, hidden_size=100, num_hidden=4) # creating a model. For example a mlp
+pinn = nsolv.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True)
 
 pinn.fit(50000, 'Adam', 1e-3)
 ```
@@ -190,28 +187,28 @@ def derivatives(x,u):
 	"""
 	pass
 	
-hpm_loss = pf.HPMLoss(pde_dataset,derivatives,hpm_model)
+hpm_loss = nsolv.HPMLoss(pde_dataset,derivatives,hpm_model)
 #HPM has no boundary conditions in general
-pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initial_condition=initial_condition, boundary_condition = [], use_gpu=True)
+pinn = nsolv.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initial_condition=initial_condition, boundary_condition = [], use_gpu=True)
 
 ```
 ## Horovod Support 
 You can activate horovod support by setting the `use_horovod` flag in the constructor of the pinn
 ```python
-pinn = pf.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True, use_horovod=True)
+pinn = nsolv.PINN(model, input_size=2, output_size=2 ,pde_loss = pde_loss, initial_condition=initial_condition, boundary_condition = [...], use_gpu=True, use_horovod=True)
 Keep in mind that the lbfgs-optimizer and the lbgfgs-finetuning is not supported with horovod activated. Another restriction is that the length or your dataset should not be smaller than the number of used GPUs for horovod.
 ```
 ## Wandb support 
 Activate wandb-logging by creating an instance of a wandb logging. Its important that you have wandb installed. 
 Look here for installing wandb: https://docs.wandb.ai/quickstart
 ```python
-logger = pf.WandbLogger(project, args) # create logger instance
+logger = nsolv.WandbLogger(project, args) # create logger instance
 pinn.fit(epochs=5000,logger=logger) # add logger to the fit method
 ```
 ## Tensorboard support 
 Activate tensorboard-logging by creating an event file with tensorboardX. Its important that you have tensorboardX installed. 
 ```python
-logger = pf.TensorBoardLogger(log_directory) # create logger instance
+logger = nsolv.TensorBoardLogger(log_directory) # create logger instance
 pinn.fit(epochs=5000,logger=logger) # add logger to the fit method
 ```
  

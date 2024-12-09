@@ -10,15 +10,7 @@ from torch import Tensor, ones, stack, load
 from torch.autograd import grad
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-from matplotlib.colors import LogNorm
-import wandb 
-
-
-
-
-sys.path.append("NeuralSolvers/")  # PINNFramework etc.
-import PINNFramework as pf
+import NeuralSolvers as nsolv
 
 
 
@@ -156,7 +148,7 @@ if __name__ == "__main__":
     
     # initial condition
     ic_dataset = InitialConditionDataset(n0=args.n0)
-    initial_condition = pf.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
     
     # boundary conditions
     bc_datasetlb = BoundaryConditionDatasetlb(nb=args.nb, lb=lb, ub=ub)
@@ -166,15 +158,15 @@ if __name__ == "__main__":
     def func(x):
         return  torch.zeros_like(x)[:,0].reshape(-1,1)
     
-    dirichlet_bc_u_lb = pf.DirichletBC(func, bc_datasetlb, name= 'ulb dirichlet boundary condition')
-    dirichlet_bc_u_ub = pf.DirichletBC(func, bc_datasetub, name= 'uub dirichlet boundary condition')
+    dirichlet_bc_u_lb = nsolv.DirichletBC(func, bc_datasetlb, name='ulb dirichlet boundary condition')
+    dirichlet_bc_u_ub = nsolv.DirichletBC(func, bc_datasetub, name='uub dirichlet boundary condition')
 
     #sampler
-    sampler = pf.LHSSampler()
+    sampler = nsolv.LHSSampler()
 #     sampler = pf.RandomSampler()
     
     # geometry
-    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
+    geometry = nsolv.NDCube(lb, ub, args.nf, args.nf_batch, sampler)
 
     def heat1d(x, u):
 
@@ -200,20 +192,20 @@ if __name__ == "__main__":
 
         return f
 
-    pde_loss = pf.PDELoss(geometry, heat1d, name='1D Heat', weight = 1)
+    pde_loss = nsolv.PDELoss(geometry, heat1d, name='1D Heat', weight = 1)
     
     # create model
-    model = pf.models.MLP(input_size=2,
-                          output_size=1,
-                          hidden_size=args.hidden_size,
-                          num_hidden=args.num_hidden,
-                          lb=lb,
-                          ub=ub)
+    model = nsolv.models.MLP(input_size=2,
+                             output_size=1,
+                             hidden_size=args.hidden_size,
+                             num_hidden=args.num_hidden,
+                             lb=lb,
+                             ub=ub)
     
     # create PINN instance
-    pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_u_lb,dirichlet_bc_u_ub], use_gpu=True)
+    pinn = nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_u_lb, dirichlet_bc_u_ub], use_gpu=True)
     
-    logger = pf.WandbLogger("1D Heat equation pinn",args)
+    logger = nsolv.WandbLogger("1D Heat equation pinn", args)
     
     # train pinn
     pinn.fit(args.num_epochs, checkpoint_path='checkpoint.pt', restart=True, logger=logger,lbfgs_finetuning=False, pretraining = True)

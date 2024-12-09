@@ -13,10 +13,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.colors import LogNorm
 import wandb 
-
-
-sys.path.append("NeuralSolvers/")  # PINNFramework etc.
-import PINNFramework as pf
+import NeuralSolvers as nsolv
 
 
 
@@ -85,14 +82,14 @@ if __name__ == "__main__":
 
     # initial condition
     ic_dataset = InitialConditionDataset(n0=args.n0)
-    initial_condition = pf.InitialCondition(ic_dataset, name='Interpolation condition')
+    initial_condition = nsolv.InitialCondition(ic_dataset, name='Interpolation condition')
       
     #sampler
-    sampler = pf.LHSSampler()
+    sampler = nsolv.LHSSampler()
     #sampler = pf.RandomSampler()
     
     # geometry
-    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
+    geometry = nsolv.NDCube(lb, ub, args.nf, args.nf_batch, sampler)
 
     def derivatives(x, u):
 
@@ -127,23 +124,23 @@ if __name__ == "__main__":
             return dt
 
 
-    logger = pf.WandbLogger("1D Heat equation pinn", args)
+    logger = nsolv.WandbLogger("1D Heat equation pinn", args)
     hpm_model = HPM_model()
     wandb.watch(hpm_model)
     print(hpm_model.c)
     #pde_loss = pf.PDELoss(pde_dataset, heat1d, name='1D Heat', weight = 1)
-    pde_loss = pf.HPMLoss(geometry, "HPM_loss", derivatives, hpm_model)
+    pde_loss = nsolv.HPMLoss(geometry, "HPM_loss", derivatives, hpm_model)
     
     # create model
-    model = pf.models.MLP(input_size=2,
-                          output_size=1,
-                          hidden_size=args.hidden_size,
-                          num_hidden=args.num_hidden,
-                          lb=lb,
-                          ub=ub)
+    model = nsolv.models.MLP(input_size=2,
+                             output_size=1,
+                             hidden_size=args.hidden_size,
+                             num_hidden=args.num_hidden,
+                             lb=lb,
+                             ub=ub)
     
     # create PINN instance
-    pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition,boundary_condition=None, use_gpu=True)
+    pinn = nsolv.PINN(model, 2, 1, pde_loss, initial_condition, boundary_condition=None, use_gpu=True)
     
 
     

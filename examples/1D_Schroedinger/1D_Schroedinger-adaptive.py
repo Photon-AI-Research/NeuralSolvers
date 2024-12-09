@@ -3,15 +3,12 @@ from argparse import ArgumentParser
 
 import numpy as np
 import scipy.io
-from pyDOE import lhs
 from torch import Tensor, ones, stack, load
 from torch.autograd import grad
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 
-sys.path.append('NeuralSolvers/')  # PINNFramework etc.
-import PINNFramework as pf
+import NeuralSolvers as nsolv
 
 
 class BoundaryConditionDataset(Dataset):
@@ -97,13 +94,13 @@ if __name__ == "__main__":
     ub = np.array([5.0, np.pi / 2])
     # initial condition
     ic_dataset = InitialConditionDataset(n0=args.n0)
-    initial_condition = pf.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
     # boundary conditions
     bc_dataset = BoundaryConditionDataset(nb=args.nb, lb=lb, ub=ub)
-    periodic_bc_u = pf.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
-    periodic_bc_v = pf.PeriodicBC(bc_dataset, 1, "v periodic boundary condition")
-    periodic_bc_u_x = pf.PeriodicBC(bc_dataset, 0, "u_x periodic boundary condition", 1, 0)
-    periodic_bc_v_x = pf.PeriodicBC(bc_dataset, 1, "v_x periodic boundary condition", 1, 0)
+    periodic_bc_u = nsolv.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
+    periodic_bc_v = nsolv.PeriodicBC(bc_dataset, 1, "v periodic boundary condition")
+    periodic_bc_u_x = nsolv.PeriodicBC(bc_dataset, 0, "u_x periodic boundary condition", 1, 0)
+    periodic_bc_v_x = nsolv.PeriodicBC(bc_dataset, 1, "v_x periodic boundary condition", 1, 0)
 
 
     def schroedinger1d(x, u):
@@ -133,27 +130,27 @@ if __name__ == "__main__":
 
         return stack([f_u, f_v], 1)  # concatenate real part and imaginary part
     
-    model = pf.models.MLP(input_size=2,
-                      output_size=2,
-                      hidden_size=args.hidden_size,
-                      num_hidden=args.num_hidden,
-                      lb=lb,
-                      ub=ub)
+    model = nsolv.models.MLP(input_size=2,
+                             output_size=2,
+                             hidden_size=args.hidden_size,
+                             num_hidden=args.num_hidden,
+                             lb=lb,
+                             ub=ub)
 
     # sampler
-    sampler = pf.AdaptiveSampler(args.ns, model, schroedinger1d)
+    sampler = nsolv.AdaptiveSampler(args.ns, model, schroedinger1d)
     
     # geometry of the domain
-    geometry = pf.NDCube(lb,ub,args.nf,args.nf_batch,sampler)
+    geometry = nsolv.NDCube(lb, ub, args.nf, args.nf_batch, sampler)
     
-    pde_loss = pf.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
+    pde_loss = nsolv.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
 
 
-    logger = pf.WandbLogger('1D Schrödinger Equation', args, 'aipp')
-    pinn = pf.PINN(model, 2, 2, pde_loss, initial_condition, [periodic_bc_u,
-                                                              periodic_bc_v,
-                                                              periodic_bc_u_x,
-                                                              periodic_bc_v_x], use_gpu=True)
+    logger = nsolv.WandbLogger('1D Schrödinger Equation', args, 'aipp')
+    pinn = nsolv.PINN(model, 2, 2, pde_loss, initial_condition, [periodic_bc_u,
+                                                                 periodic_bc_v,
+                                                                 periodic_bc_u_x,
+                                                                 periodic_bc_v_x], use_gpu=True)
     pinn.fit(args.num_epochs, checkpoint_path='checkpoint.pt',
              restart=True, logger=logger, activate_annealing=args.annealing, annealing_cycle=args.annealing_cycle,
              writing_cycle=500,

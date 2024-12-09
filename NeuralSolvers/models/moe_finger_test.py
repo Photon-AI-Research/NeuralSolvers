@@ -1,4 +1,4 @@
-from PINNFramework.models import FingerMoE
+from NeuralSolvers.models import FingerMoE
 import numpy as np
 import torch
 

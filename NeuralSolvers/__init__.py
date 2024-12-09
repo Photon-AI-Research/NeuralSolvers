@@ -16,8 +16,8 @@ from .LHS_Sampler import LHSSampler
 from .Adaptive_Sampler import AdaptiveSampler
 from .ND_Cube import NDCube
 
-import PINNFramework.models
-import PINNFramework.callbacks
+import NeuralSolvers.models
+import NeuralSolvers.callbacks
 
 
 __all__ = [

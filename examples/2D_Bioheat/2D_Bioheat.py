@@ -1,8 +1,7 @@
 import sys
 from Datasets import *
 from argparse import ArgumentParser
-sys.path.append('../..')  # PINNFramework etc.
-import PINNFramework as pf
+import NeuralSolvers as nsolv
 
 if __name__ == "__main__":
 
@@ -29,7 +28,7 @@ if __name__ == "__main__":
         numBatches=args.numBatches,
         nt=args.nt,
         timeStep=args.timeStep)
-    initial_condition = pf.InitialCondition(ic_dataset)
+    initial_condition = nsolv.InitialCondition(ic_dataset)
     # PDE dataset
     pde_dataset = PDEDataset(
         pData=args.pData,
@@ -43,37 +42,37 @@ if __name__ == "__main__":
     # Thermal diffusivity model
     # Input: spatiotemporal coordinates of a point x,y,t
     # Output: thermal diffusivity value for the point
-    alpha_net = pf.models.MLP(input_size=3,
-                              output_size=1,
-                              hidden_size=args.hidden_size_alpha,
-                              num_hidden=args.num_hidden_alpha,
-                              lb=ic_dataset.lb[:3], #lb for x,y,t
-                              ub=ic_dataset.ub[:3]) #ub for x,y,t
+    alpha_net = nsolv.models.MLP(input_size=3,
+                                 output_size=1,
+                                 hidden_size=args.hidden_size_alpha,
+                                 num_hidden=args.num_hidden_alpha,
+                                 lb=ic_dataset.lb[:3],  #lb for x,y,t
+                                 ub=ic_dataset.ub[:3]) #ub for x,y,t
     # Heat source model - part of du/dt that cannot be explained by conduction
     # Input: spatiotemporal coordinates of a point x,y,t
     # Output: heat source value for the point
-    heat_source_net = pf.models.MLP(input_size=3,
-                                    output_size=1,
-                                    hidden_size=args.hidden_size_hs,
-                                    num_hidden=args.num_hidden_hs,
-                                    lb=ic_dataset.lb[:3], #lb for x,y,t
-                                    ub=ic_dataset.ub[:3]) #ub for x,y,t
+    heat_source_net = nsolv.models.MLP(input_size=3,
+                                       output_size=1,
+                                       hidden_size=args.hidden_size_hs,
+                                       num_hidden=args.num_hidden_hs,
+                                       lb=ic_dataset.lb[:3],  #lb for x,y,t
+                                       ub=ic_dataset.ub[:3]) #ub for x,y,t
     # PINN model
     # Input: spatiotemporal coordinates of a point x,y,t
     # Output: temperature u at the point
-    model = pf.models.MLP(input_size=3,
-                          output_size=1,
-                          hidden_size=args.hidden_size,
-                          num_hidden=args.num_hidden,
-                          lb=ic_dataset.lb[:3], #lb for x,y,t
-                          ub=ic_dataset.ub[:3]) #ub for x,y,t
+    model = nsolv.models.MLP(input_size=3,
+                             output_size=1,
+                             hidden_size=args.hidden_size,
+                             num_hidden=args.num_hidden,
+                             lb=ic_dataset.lb[:3],  #lb for x,y,t
+                             ub=ic_dataset.ub[:3]) #ub for x,y,t
     # HPM model: du/dt = alpha*(u_xx + u_yy) + heat_source
     # Initialization: alpha model, heat source model
     # Forward pass input: output of the derivatives function for a point x,y,t
     # Forward pass output: du/dt value for the point
-    hpm_model = pf.models.MultiModelHPM(alpha_net, heat_source_net)
-    hpm_loss = pf.HPMLoss.HPMLoss(pde_dataset, derivatives, hpm_model)
-    pinn = pf.PINN(
+    hpm_model = nsolv.models.MultiModelHPM(alpha_net, heat_source_net)
+    hpm_loss = nsolv.HPMLoss.HPMLoss(pde_dataset, derivatives, hpm_model)
+    pinn = nsolv.PINN(
         model,
         input_dimension=6,
         output_dimension=1,

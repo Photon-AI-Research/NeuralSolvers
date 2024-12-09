@@ -12,7 +12,7 @@ from .JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
 from .Adaptive_Sampler import AdaptiveSampler
 from torch.autograd import grad as grad
-from PINNFramework.callbacks import CallbackList
+from NeuralSolvers.callbacks import CallbackList
 
 try:
     import horovod.torch as hvd

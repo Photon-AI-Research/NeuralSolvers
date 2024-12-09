@@ -7,8 +7,7 @@ from numpy import gradient
 from scipy.ndimage import median_filter
 from scipy.ndimage import binary_erosion as e
 from scipy.ndimage import binary_dilation as d
-sys.path.append('../..')
-import PINNFramework as pf
+import NeuralSolvers as nsolv
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -60,7 +59,7 @@ if __name__ == "__main__":
     # Create Initial Condition & PDE datasets
     ic_dataset = InitialConditionDataset(  
         data_info, args.batch_size, num_batches, segm_params)
-    initial_condition = pf.InitialCondition(dataset=ic_dataset, name="Initial Condition", weight=args.weight)
+    initial_condition = nsolv.InitialCondition(dataset=ic_dataset, name="Initial Condition", weight=args.weight)
     pde_dataset = PDEDataset(
         data_info,
         args.batch_size,
@@ -71,12 +70,12 @@ if __name__ == "__main__":
     # Interpolation model
     #     Input: spatiotemporal coordinates of a point x,y,t.
     #     Output: temperature u at the point.
-    model = pf.models.MLP(input_size=3,
-                          output_size=1,
-                          hidden_size=args.hidden_size,
-                          num_hidden=args.num_hidden,
-                          lb=low_bound,
-                          ub=up_bound)
+    model = nsolv.models.MLP(input_size=3,
+                             output_size=1,
+                             hidden_size=args.hidden_size,
+                             num_hidden=args.num_hidden,
+                             lb=low_bound,
+                             ub=up_bound)
     
     pinn_path = "/bigdata/hplsim/aipp/Maksim/default_best_model_pinn.pt"
     model.load_state_dict(torch.load(pinn_path))
@@ -84,12 +83,12 @@ if __name__ == "__main__":
     # Heat source model
     #     Input: spatiotemporal coordinates of a point x,y,t.
     #     Output: temperature u at the point.    
-    hs_net = pf.models.MLP(input_size=3,
-                      output_size=1,
-                      hidden_size=100,
-                      num_hidden=1,
-                      lb=low_bound,
-                      ub=up_bound)
+    hs_net = nsolv.models.MLP(input_size=3,
+                              output_size=1,
+                              hidden_size=100,
+                              num_hidden=1,
+                              lb=low_bound,
+                              ub=up_bound)
     
     if args.pretrained:
         if len(args.pretrained_name):
@@ -100,11 +99,11 @@ if __name__ == "__main__":
     #     Input: output of the derivatives function for a point x,y,t.
     #     Output: du/dt value for the point.
     config = {'convection': 1, 'linear_u': 1, 'heat_source':1}       
-    hpm_model = pf.models.PennesHPM(config, hs_net = hs_net)
-    hpm_loss = pf.HPMLoss.HPMLoss(dataset=pde_dataset, hpm_input=derivatives, hpm_model=hpm_model, name="Pennes Equation", weight=args.weight_hpm)
-    logger = pf.WandbLogger('thermal_hpm', args)
+    hpm_model = nsolv.models.PennesHPM(config, hs_net = hs_net)
+    hpm_loss = nsolv.HPMLoss.HPMLoss(dataset=pde_dataset, hpm_input=derivatives, hpm_model=hpm_model, name="Pennes Equation", weight=args.weight_hpm)
+    logger = nsolv.WandbLogger('thermal_hpm', args)
     # Initialize and fit an physics-informed neural network
-    pinn = pf.PINN(
+    pinn = nsolv.PINN(
         model,
         input_dimension=8,
         output_dimension=1,

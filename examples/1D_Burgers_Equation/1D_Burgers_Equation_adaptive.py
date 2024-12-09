@@ -1,18 +1,14 @@
 import sys
 
-import numpy
 import numpy as np
 import scipy.io
-from pyDOE import lhs
 import torch
 from torch import Tensor, ones, stack, load
 from torch.autograd import grad
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
 
-sys.path.append('NeuralSolvers/')  # PINNFramework etc.
-import PINNFramework as pf
+import NeuralSolvers as nsolv
 
 
 
@@ -73,7 +69,7 @@ if __name__ == "__main__":
 
     # initial condition
     ic_dataset = InitialConditionDataset(n0=N_u)
-    initial_condition = pf.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
 
     # define underlying PDE
     def burger1D(x, u):
@@ -97,21 +93,21 @@ if __name__ == "__main__":
         return f
     
     # create model
-    model = pf.models.MLP(input_size=2, output_size=1,
-                          hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
+    model = nsolv.models.MLP(input_size=2, output_size=1,
+                             hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
     
     # sampler
-    sampler = pf.AdaptiveSampler(5000, model, burger1D)
+    sampler = nsolv.AdaptiveSampler(5000, model, burger1D)
     
     # geometry of the domain
-    geometry = pf.NDCube(lb,ub,N_f,N_f,sampler)
+    geometry = nsolv.NDCube(lb, ub, N_f, N_f, sampler)
 
-    pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers')
+    pde_loss = nsolv.PDELoss(geometry, burger1D, name='1D Burgers')
 
     # create PINN instance
-    pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=True)
+    pinn = nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=True)
     
-    logger = pf.WandbLogger("1D Burgers equation pinn", args = {})
+    logger = nsolv.WandbLogger("1D Burgers equation pinn", args = {})
 
     # train pinn
     pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, logger=logger, lbfgs_finetuning=False, writing_cycle=1000)

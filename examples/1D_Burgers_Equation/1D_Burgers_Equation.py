@@ -3,7 +3,6 @@ import sys
 import numpy
 import numpy as np
 import scipy.io
-from pyDOE import lhs
 import torch
 from torch import Tensor, ones, stack, load
 from torch.autograd import grad
@@ -11,8 +10,7 @@ from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-sys.path.append('NeuralSolvers/')  # PINNFramework etc.
-import PINNFramework as pf
+import NeuralSolvers as nsolv
 
 
 
@@ -75,14 +73,14 @@ if __name__ == "__main__":
 
     # initial condition
     ic_dataset = InitialConditionDataset(n0=N_u)
-    initial_condition = pf.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
 
     #sampler
-    sampler = pf.LHSSampler()
+    sampler = nsolv.LHSSampler()
     #sampler = pf.RandomSampler()
     
     # geometry
-    geometry = pf.NDCube(lb,ub,N_f,N_f,sampler)
+    geometry = nsolv.NDCube(lb, ub, N_f, N_f, sampler)
 
     # define underlying PDE
     def burger1D(x, u):
@@ -105,15 +103,16 @@ if __name__ == "__main__":
         f = u_t + u * u_x - (0.01 / np.pi) * u_xx
         return f
 
-    pde_loss = pf.PDELoss(geometry, burger1D, name='1D Burgers equation')
+    pde_loss = nsolv.PDELoss(geometry, burger1D, name='1D Burgers equation')
     # create model
-    model = pf.models.MLP(input_size=2, output_size=1,
-                          hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
+    model = nsolv.models.MLP(input_size=2, output_size=1,
+                             hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
     # create PINN instance
-    pinn = pf.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=True)
+    pinn = nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=False)
 
-    logger = pf.WandbLogger("1D Burgers equation pinn", args = {})
-    
+    #logger = nsolv.WandbLogger("1D Burgers equation pinn", args = {})
+    logger = None
+
     # train pinn
     pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
 

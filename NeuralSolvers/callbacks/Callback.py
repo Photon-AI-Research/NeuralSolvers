@@ -1,5 +1,5 @@
 from torch.nn import Module
-from PINNFramework.Logger_Interface import LoggerInterface
+from NeuralSolvers.Logger_Interface import LoggerInterface
 
 
 class Callback:

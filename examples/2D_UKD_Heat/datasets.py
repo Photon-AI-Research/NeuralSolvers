@@ -1,5 +1,5 @@
 """
-Module with datasets needed to train HPM model using PINNFramework
+Module with datasets needed to train HPM model using NeuralSolvers
 (see https://github.com/ComputationalRadiationPhysics/NeuralSolvers).
 Data is stored in multiple h5 files, one file for one time frame.
 Each h5 file is essentially a dictionary with 2 items:

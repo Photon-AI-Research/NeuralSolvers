@@ -1,4 +1,4 @@
-from PINNFramework.models import MoE
+from NeuralSolvers.models import MoE
 import numpy as np
 import torch
 
