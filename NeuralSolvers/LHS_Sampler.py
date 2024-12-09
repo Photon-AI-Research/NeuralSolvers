@@ -5,11 +5,12 @@ from .Sampler import Sampler
 
 
 class LHSSampler(Sampler):
-    def __init__(self):
+    def __init__(self, device = 'cpu'):
         """
         Constructor of the LHSSampler class
         """
         super(LHSSampler, self).__init__()
+        self.device = device
 
     def sample(self, lb, ub, n):        
         """Generate 'n' number of sample points in [lb,ub]
@@ -28,4 +29,7 @@ class LHSSampler(Sampler):
         
         dimension = lb.shape[1]
         xf = lb + (ub - lb) * lhs(dimension, n)
-        return torch.tensor(xf).float()
+        xf_torch = torch.tensor(xf).float().to(self.device)
+
+
+        return xf_torch

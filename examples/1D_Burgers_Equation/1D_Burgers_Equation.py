@@ -16,7 +16,7 @@ import NeuralSolvers as nsolv
 
 class InitialConditionDataset(Dataset):
 
-    def __init__(self, n0):
+    def __init__(self, n0, device = 'cpu'):
         """
         Constructor of the boundary condition dataset
 
@@ -24,6 +24,7 @@ class InitialConditionDataset(Dataset):
           n0 (int)
         """
         super(type(self)).__init__()
+        self.device = device
         data = scipy.io.loadmat('burgers_shock.mat')
 
         t = data['t'].flatten()[:, None]
@@ -43,8 +44,8 @@ class InitialConditionDataset(Dataset):
         u_train = np.vstack([uu1, uu2, uu3])
 
         idx = np.random.choice(X_u_train.shape[0], n0, replace=False)
-        self.X_u_train = X_u_train[idx, :]
-        self.u_train = u_train[idx, :]
+        self.X_u_train = Tensor(X_u_train[idx, :]).to(self.device)
+        self.u_train = Tensor(u_train[idx, :]).to(self.device)
 
     def __len__(self):
         """
@@ -61,6 +62,9 @@ class InitialConditionDataset(Dataset):
 
 
 if __name__ == "__main__":
+    my_device = 'cpu'
+    no_epochs = 1000 # 50000
+
     # Domain bounds
     lb = np.array([-1, 0.0])
     ub = np.array([1.0, 1.0])
@@ -72,7 +76,7 @@ if __name__ == "__main__":
     N_f = 10000
 
     # initial condition
-    ic_dataset = InitialConditionDataset(n0=N_u)
+    ic_dataset = InitialConditionDataset(n0=N_u,device=my_device)
     initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
 
     #sampler
@@ -80,7 +84,7 @@ if __name__ == "__main__":
     #sampler = pf.RandomSampler()
     
     # geometry
-    geometry = nsolv.NDCube(lb, ub, N_f, N_f, sampler)
+    geometry = nsolv.NDCube(lb, ub, N_f, N_f, sampler, device=my_device)
 
     # define underlying PDE
     def burger1D(x, u):
@@ -105,16 +109,16 @@ if __name__ == "__main__":
 
     pde_loss = nsolv.PDELoss(geometry, burger1D, name='1D Burgers equation')
     # create model
-    model = nsolv.models.MLP(input_size=2, output_size=1,
+    model = nsolv.models.MLP(input_size=2, output_size=1, device = my_device,
                              hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
     # create PINN instance
-    pinn = nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=False)
+    pinn = nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], device = my_device)
 
     #logger = nsolv.WandbLogger("1D Burgers equation pinn", args = {})
     logger = None
 
     # train pinn
-    pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
+    pinn.fit(no_epochs, checkpoint_path='checkpoint.pt', restart=True, logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
 
 
 
@@ -136,7 +140,7 @@ if __name__ == "__main__":
     lb = X_star.min(0)
     ub = X_star.max(0)
 
-    pred = pinn(Tensor(X_star).cuda())
+    pred = pinn(Tensor(X_star).to(my_device))
     pred = pred.detach().cpu().numpy()
     pred = pred.reshape(X.shape)
     plt.imshow(pred.T, interpolation='nearest', cmap='rainbow',

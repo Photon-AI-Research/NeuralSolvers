@@ -1,9 +1,8 @@
-import numpy as np
 import torch
 from .Geometry import Geometry
 
 class NDCube(Geometry):
-    def __init__(self, lb, ub, n_points, batch_size, sampler):
+    def __init__(self, lb, ub, n_points, batch_size, sampler, device = 'cpu'):
         """
         Constructor of the NDCube class
 
@@ -14,8 +13,8 @@ class NDCube(Geometry):
             batch_size (int): batch size
             sampler: instance of the Sampler class.
         """
-        super(NDCube, self).__init__(lb, ub, n_points, batch_size, sampler)
-        
+        super(NDCube, self).__init__(lb, ub, n_points, batch_size, sampler, device)
+
         
     def __getitem__(self, idx):
         """
@@ -23,7 +22,7 @@ class NDCube(Geometry):
         Args:
             idx (int)
         """
-        self.x = self.sampler.sample(self.lb,self.ub, self.batch_size) 
+        self.x = self.sampler.sample(self.lb,self.ub, self.batch_size).to(self.device)
         
         if type(self.x) is tuple:
             x, w = self.x

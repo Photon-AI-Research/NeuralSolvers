@@ -1,9 +1,11 @@
+import warnings
+
 import torch
 import torch.nn as nn
 
 
 class MLP(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub, activation=torch.tanh, normalize=True):
+    def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub, activation=torch.tanh, normalize=True, device='cpu'):
         super(MLP, self).__init__()
         self.linear_layers = nn.ModuleList()
         self.activation = activation
@@ -11,6 +13,7 @@ class MLP(nn.Module):
         self.lb = torch.Tensor(lb).float()
         self.ub = torch.Tensor(ub).float()
         self.normalize = normalize
+        self.device = device
 
     def init_layers(self, input_size, output_size, hidden_size, num_hidden):
         self.linear_layers.append(nn.Linear(input_size, hidden_size))
@@ -24,6 +27,13 @@ class MLP(nn.Module):
                 nn.init.constant_(m.bias, 0)
 
     def forward(self, x):
+        if x.device != self.device:
+            warnings.warn(f"Input tensor was on {x.device}, but model is on {self.device}. "
+                          f"Input tensor has been moved to {self.device}. "
+                          "This may slow down computation. Consider moving your input tensor to the correct device before calling the model.",
+                          UserWarning)
+            x = x.to(self.device)
+
         if self.normalize:
             x = 2.0*(x - self.lb)/(self.ub - self.lb) - 1.0
         for i in range(len(self.linear_layers) - 1):

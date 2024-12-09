@@ -20,6 +20,7 @@ class PDELoss(LossTerm):
         self.geometry = geometry
         self.pde = pde
 
+
     def __call__(self, x: Tensor, model: Module, **kwargs):
         """
         Call function of the PDE loss. Calculates the norm of the PDE residual

@@ -31,7 +31,7 @@ class PINN(nn.Module):
 
     def __init__(self, model: torch.nn.Module, input_dimension: int, output_dimension: int,
                  pde_loss: PDELoss, initial_condition: InitialCondition, boundary_condition,
-                 use_gpu=True, use_horovod=False,dataset_mode='min'):
+                 device='cpu', use_horovod=False,dataset_mode='min'):
         """
         Initializes an physics-informed neural network (PINN). A PINN consists of a model which represents the solution
         of the underlying partial differential equation(PDE) u, three loss terms representing initial (IC) and boundary
@@ -45,7 +45,7 @@ class PINN(nn.Module):
             initial_condition: Instance of the InitialCondition class. Represents the initial condition
             boundary_condition (BoundaryCondition, list): Instance of the BoundaryCondition class or a list of instances
             of the BoundaryCondition class
-            use_gpu: enables gpu usage
+            device: ML accelerator ['cpu', 'gpu', 'mps', etc.]
             use_horovod: enables horovod support
             dataset_mode: defines the behavior of the joined dataset. The 'min'-mode sets the length of the dataset to
             the minimum of the
@@ -53,26 +53,28 @@ class PINN(nn.Module):
         """
         super(PINN, self).__init__()
         # checking if the model is a torch module more model checking should be possible
-        self.use_gpu = use_gpu
+        self.device = torch.device(device)
         self.use_horovod = use_horovod
         self.rank = 0  # initialize rank 0 by default in order to make the fit method more flexible
         self.loss_gradients_storage = {}
-        if self.use_horovod:
 
+        # make sure to convert all parts to self.device
+        #pde_loss.to(self.device)
+
+        if self.use_horovod:
             # Initialize Horovod
             hvd.init()
             # Pin GPU to be used to process local rank (one GPU per process)
             torch.cuda.set_device(hvd.local_rank())
             self.rank = hvd.rank()
+
         if self.rank == 0:
             self.loss_log = {}
+
         if isinstance(model, nn.Module):
             self.model = model
-            if self.use_gpu:
-                self.model.cuda()
-                self.dtype = torch.cuda.FloatTensor
-            else:
-                self.dtype = torch.FloatTensor
+            self.model.to(self.device)
+            self.dtype = torch.float32  # Use float32 for all devices
         else:
             raise TypeError("Only models of type torch.nn.Module are allowed")
 
@@ -100,11 +102,10 @@ class PINN(nn.Module):
             
         if isinstance(pde_loss, HPMLoss):
             self.is_hpm = True
-            if self.use_gpu:
-                self.pde_loss.hpm_model.cuda()
+            self.pde_loss.hpm_model.to(self.device)
         
         if isinstance(pde_loss.geometry.sampler, AdaptiveSampler):
-            self.pde_loss.geometry.sampler.device = torch.device("cuda" if self.use_gpu else "cpu")
+            self.pde_loss.geometry.sampler.device = self.device
 
         if isinstance(initial_condition, InitialCondition):
             self.initial_condition = initial_condition
@@ -121,6 +122,7 @@ class PINN(nn.Module):
             initial_condition.name: initial_condition.dataset,
             pde_loss.name: pde_loss.geometry
         }
+
         if self.rank == 0:
             self.loss_log[initial_condition.name] = float(0.0)  # adding initial condition to the loss_log
             self.loss_log[pde_loss.name] = float(0.0)
@@ -148,7 +150,7 @@ class PINN(nn.Module):
         self.dataset = JoinedDataset(joined_datasets, dataset_mode)
 
     def loss_gradients(self, loss):
-        device = torch.device("cuda" if self.use_gpu else "cpu")
+        device = self.device
         grad_ = torch.zeros((0), dtype=torch.float32, device=device)
         model_grads = grad(loss, self.model.parameters(), allow_unused=True, retain_graph=True)
         for elem in model_grads:
