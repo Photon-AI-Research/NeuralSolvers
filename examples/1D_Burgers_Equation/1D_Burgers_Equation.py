@@ -10,8 +10,8 @@ from torch.profiler import profile, record_function, ProfilerActivity
 
 
 # Constants
-DEVICE = 'cpu'
-NUM_EPOCHS = 10  # 50000
+DEVICE = 'mps'
+NUM_EPOCHS = 1000  # 50000
 DOMAIN_LOWER_BOUND = np.array([-1, 0.0])
 DOMAIN_UPPER_BOUND = np.array([1.0, 1.0])
 VISCOSITY = 0.01 / np.pi
@@ -117,7 +117,7 @@ def setup_pinn():
     return nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], device=DEVICE)
 
 
-def train_pinn(pinn, num_epochs):
+def train_pinn_profiler(pinn, num_epochs):
     """Train the PINN model."""
     with profile(activities=[ProfilerActivity.CPU], record_shapes=True) as prof:
         with record_function("model_training"):
@@ -126,6 +126,12 @@ def train_pinn(pinn, num_epochs):
 
     print(prof.key_averages().table(sort_by="cpu_time_total", row_limit=10))
     print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=10))
+
+
+def train_pinn(pinn, num_epochs):
+    """Train the PINN model."""
+    pinn.fit(num_epochs, checkpoint_path='checkpoint.pt', restart=True,
+        logger=None, lbfgs_finetuning=False, writing_cycle=1000)
 
 
 def plot_solution(pinn, t, x, exact_solution):
