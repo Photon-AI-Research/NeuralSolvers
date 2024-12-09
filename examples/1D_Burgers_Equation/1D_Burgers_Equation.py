@@ -150,6 +150,6 @@ if __name__ == "__main__":
     pinn = setup_pinn()
     train_pinn(pinn, NUM_EPOCHS)
 
-    pinn.load_model('best_model_pinn.pt')
+    #pinn.load_model('best_model_pinn.pt')
     t, x, exact_solution = load_burger_data()
     plot_solution(pinn, t, x, exact_solution)

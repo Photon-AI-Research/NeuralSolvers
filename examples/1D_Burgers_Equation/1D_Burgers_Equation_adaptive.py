@@ -1,146 +1,124 @@
-import sys
-
 import numpy as np
 import scipy.io
 import torch
-from torch import Tensor, ones, stack, load
+from torch import Tensor, ones
 from torch.autograd import grad
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
-
 import NeuralSolvers as nsolv
 
+# Constants
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+NUM_EPOCHS = 50000
+DOMAIN_LOWER_BOUND = np.array([-1, 0.0])
+DOMAIN_UPPER_BOUND = np.array([1.0, 1.0])
+VISCOSITY = 0.01 / np.pi
+NOISE = 0.0
+NUM_INITIAL_POINTS = 100
+NUM_COLLOCATION_POINTS = 10000
+ADAPTIVE_SAMPLE_SIZE = 5000
+
+
+def burger1D(x, u):
+    grads = ones(u.shape, device=u.device)
+    grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]
+    u_x, u_t = grad_u[:, 0], grad_u[:, 1]
+
+    grads = ones(u_x.shape, device=u.device)
+    u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 0]
+
+    u_x, u_t, u_xx = [tensor.reshape(-1, 1) for tensor in (u_x, u_t, u_xx)]
+
+    return u_t + u * u_x - VISCOSITY * u_xx
 
 
 class InitialConditionDataset(Dataset):
-
-    def __init__(self, n0):
-        """
-        Constructor of the boundary condition dataset
-
-        Args:
-          n0 (int)
-        """
-        super(type(self)).__init__()
+    def __init__(self, n0, device=DEVICE):
+        super().__init__()
+        self.device = device
         data = scipy.io.loadmat('burgers_shock.mat')
 
-        t = data['t'].flatten()[:, None]
-        x = data['x'].flatten()[:, None]
-
+        t, x = data['t'].flatten()[:, None], data['x'].flatten()[:, None]
         Exact = np.real(data['usol']).T
 
         X, T = np.meshgrid(x, t)
-        xx1 = np.hstack((X[0:1, :].T, T[0:1, :].T))
-        uu1 = Exact[0:1, :].T
-        xx2 = np.hstack((X[:, 0:1], T[:, 0:1]))
-        uu2 = Exact[:, 0:1]
-        xx3 = np.hstack((X[:, -1:], T[:, -1:]))
-        uu3 = Exact[:, -1:]
-
-        X_u_train = np.vstack([xx1, xx2, xx3])
-        u_train = np.vstack([uu1, uu2, uu3])
+        X_u_train = np.vstack([
+            np.hstack((X[0:1, :].T, T[0:1, :].T)),
+            np.hstack((X[:, 0:1], T[:, 0:1])),
+            np.hstack((X[:, -1:], T[:, -1:]))
+        ])
+        u_train = np.vstack([
+            Exact[0:1, :].T,
+            Exact[:, 0:1],
+            Exact[:, -1:]
+        ])
 
         idx = np.random.choice(X_u_train.shape[0], n0, replace=False)
-        self.X_u_train = X_u_train[idx, :]
-        self.u_train = u_train[idx, :]
+        self.X_u_train = Tensor(X_u_train[idx, :]).to(self.device)
+        self.u_train = Tensor(u_train[idx, :]).to(self.device)
 
     def __len__(self):
-        """
-        There exists no batch processing. So the size is 1
-        """
         return 1
 
     def __getitem__(self, idx):
-        x = self.X_u_train
-        y = self.u_train
-
-        return Tensor(x).float(), Tensor(y).float()
+        return self.X_u_train.float(), self.u_train.float()
 
 
-if __name__ == "__main__":
-    # Domain bounds
-    lb = np.array([-1, 0.0])
-    ub = np.array([1.0, 1.0])
-    nu = 0.01 / np.pi
-    noise = 0.0
+def load_burger_data(file_path='burgers_shock.mat'):
+    data = scipy.io.loadmat(file_path)
+    t, x = data['t'].flatten()[:, None], data['x'].flatten()[:, None]
+    exact_solution = np.real(data['usol']).T
+    return t, x, exact_solution
 
-    N_u = 100
-    N_f = 10000
 
-    # initial condition
-    ic_dataset = InitialConditionDataset(n0=N_u)
+def setup_pinn():
+    ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS, device=DEVICE)
     initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
 
-    # define underlying PDE
-    def burger1D(x, u):
-        grads = ones(u.shape, device=u.device)  # move to the same device as prediction
-        grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]
-        # calculate first order derivatives
-        u_x = grad_u[:, 0]
-        u_t = grad_u[:, 1]
+    model = nsolv.models.MLP(
+        input_size=2, output_size=1, device=DEVICE,
+        hidden_size=40, num_hidden=8, lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND,
+        activation=torch.tanh
+    )
 
-        grads = ones(u_x.shape, device=u.device)  # move to the same device as prediction
-        # calculate second order derivatives
-        grad_u_x = grad(u_x, x, create_graph=True, grad_outputs=grads)[0]
-        u_xx = grad_u_x[:, 0]
+    sampler = nsolv.AdaptiveSampler(ADAPTIVE_SAMPLE_SIZE, model, burger1D)
+    geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
+                            sampler, device=DEVICE)
 
-        # reshape for correct behavior of the optimizer
-        u_x = u_x.reshape(-1, 1)
-        u_t = u_t.reshape(-1, 1)
-        u_xx = u_xx.reshape(-1, 1)
+    pde_loss = nsolv.PDELoss(geometry, burger1D, name='1D Burgers equation')
 
-        f = u_t + u * u_x - (0.01 / np.pi) * u_xx
-        return f
-    
-    # create model
-    model = nsolv.models.MLP(input_size=2, output_size=1,
-                             hidden_size=40, num_hidden=8, lb=lb, ub=ub, activation=torch.tanh)
-    
-    # sampler
-    sampler = nsolv.AdaptiveSampler(5000, model, burger1D)
-    
-    # geometry of the domain
-    geometry = nsolv.NDCube(lb, ub, N_f, N_f, sampler)
-
-    pde_loss = nsolv.PDELoss(geometry, burger1D, name='1D Burgers')
-
-    # create PINN instance
-    pinn = nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], use_gpu=True)
-    
-    logger = nsolv.WandbLogger("1D Burgers equation pinn", args = {})
-
-    # train pinn
-    pinn.fit(50000, checkpoint_path='checkpoint.pt', restart=True, logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
+    return nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], device=DEVICE)
 
 
+def train_pinn(pinn, num_epochs):
+    #logger = nsolv.WandbLogger("1D Burgers equation pinn", {"num_epochs": num_epochs})
+    logger = None
+    pinn.fit(num_epochs, checkpoint_path='checkpoint.pt', restart=True,
+             logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
 
-    # ========Plotting========
 
-    pinn.load_model('best_model_pinn.pt')  # load best PINN model for plotting
-    data = scipy.io.loadmat('burgers_shock.mat')
-
-    t = data['t'].flatten()[:, None]
-    x = data['x'].flatten()[:, None]
-    Exact = np.real(data['usol']).T
-
+def plot_solution(pinn, t, x, exact_solution):
     X, T = np.meshgrid(x, t)
-
     X_star = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
-    u_star = Exact.flatten()[:, None]
 
-    # Domain bounds
-    lb = X_star.min(0)
-    ub = X_star.max(0)
+    pred = pinn(Tensor(X_star).to(DEVICE))
+    pred = pred.detach().cpu().numpy().reshape(X.shape)
 
-    pred = pinn(Tensor(X_star).cuda())
-    pred = pred.detach().cpu().numpy()
-    pred = pred.reshape(X.shape)
+    plt.figure(figsize=(10, 8))
     plt.imshow(pred.T, interpolation='nearest', cmap='rainbow',
                extent=[t.min(), t.max(), x.min(), x.max()],
                origin='lower', aspect='auto')
     plt.xlabel(r'$t$')
     plt.ylabel(r'$x$')
-    plt.title(r"$u(x,t)$")
+    plt.title(r"$u(x,t)$ - Adaptive PINN Solution")
     plt.colorbar()
     plt.show()
 
+
+if __name__ == "__main__":
+    pinn = setup_pinn()
+    train_pinn(pinn, NUM_EPOCHS)
+
+    pinn.load_model('best_model_pinn.pt')
+    t, x, exact_solution = load_burger_data()
+    plot_solution(pinn, t, x, exact_solution)
