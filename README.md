@@ -1,9 +1,5 @@
-<h1 align="center">Neural Solvers at Scale</h1>
-
-
 <div align="center" style="display: flex; justify-content: center; align-items: center; gap: 20px; margin-bottom: 20px;">
-  <img src="images/cropped_logo.png" alt="Neural Solvers Logo" width="200" style="box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);"/>
-  <img src="images/1D_Schroedinger_training.gif" alt="1D Schroedinger Training" width="400" style="border-radius: 10px;"/>
+  <img src="images/cropped_logo.png" alt="Neural Solvers Logo" width="400" style="box-shadow: 0 0px 0px 0 rgba(0, 0, 0, 0.2);"/>
 </div>
 
 
