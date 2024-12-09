@@ -30,8 +30,39 @@
 ```bash
 git clone git@github.com:Photon-AI-Research/NeuralSolvers.git
 cd NeuralSolvers
-pip install neuralsolvers
+pip install .
 ```
+
+### 2.2 Getting Started with 1D Burgers' Equation Example
+
+To help you get started with Neural Solvers, we've provided an example that solves the 1D Burgers' Equation. This example demonstrates the basic usage of the library and serves as a good starting point for understanding how to set up and solve PDEs using our framework.
+
+The `1D_Burgers_Equation.py` script in the `examples` directory provides a complete example of how to:
+
+1. Define the problem domain
+2. Set up the neural network model
+3. Define initial and boundary conditions
+4. Create the PINN (Physics-Informed Neural Network)
+5. Train the model
+6. Visualize the results
+
+To run this example:
+
+```bash
+python examples/1D_Burgers_Equation.py
+```
+
+This example showcases:
+
+- How to use our custom PINN class
+- Setting up PDELoss for the Burgers' equation
+- Defining and using initial and boundary conditions
+- Training process with our fit method
+- Basic result visualization
+
+We encourage you to explore this example to get a feel for how Neural Solvers works. You can use it as a template for solving your own PDEs or as a reference for understanding the library's structure.
+
+For more advanced usage and additional examples, please refer to the Examples section below.
 
 ## 3. Basic Usage
 ### 3.1. Define datasets for co-location points
