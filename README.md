@@ -48,17 +48,9 @@ To run this example:
 python examples/1D_Burgers_Equation.py
 ```
 
-This example showcases:
-
-- How to use our custom PINN class
-- Setting up PDELoss for the Burgers' equation
-- Defining and using initial and boundary conditions
-- Training process with our fit method
-- Basic result visualization
-
 We encourage you to explore this example to get a feel for how Neural Solvers works. You can use it as a template for solving your own PDEs or as a reference for understanding the library's structure.
 
-For more advanced usage and additional examples, please refer to the Examples section below.
+For more advanced usage, please refer to the next sections below.
 
 ## 3. Basic Usage
 Here's a simple example of how to use the PINN class:
