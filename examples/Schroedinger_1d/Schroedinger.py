@@ -81,7 +81,7 @@ class BoundaryConditionDataset(Dataset):
 
 def setup_pinn(file_path = 'NLS.mat'):
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS,file_path=file_path)
-    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition loss')
 
     bc_dataset = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS,file_path=file_path)
     periodic_bc_u = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
@@ -92,7 +92,7 @@ def setup_pinn(file_path = 'NLS.mat'):
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
                             nsolv.samplers.LHSSampler(), device=DEVICE)
 
-    pde_loss = nsolv.pinn.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
+    pde_loss = nsolv.pinn.PDELoss(geometry, schroedinger1d, name='PDE loss')
 
     model = nsolv.models.MLP(
         input_size=2, output_size=2, device=DEVICE,
@@ -104,9 +104,8 @@ def setup_pinn(file_path = 'NLS.mat'):
                       [periodic_bc_u, periodic_bc_v, periodic_bc_u_x, periodic_bc_v_x], device=DEVICE)
 
 
-def train_pinn(pinn, num_epochs):
+def train_pinn(pinn, num_epochs, logger = None):
     #logger = nsolv.WandbLogger('1D Schrödinger Equation', {"num_epochs": num_epochs})
-    logger = None
     pinn.fit(num_epochs, checkpoint_path='checkpoint.pt', restart=True, logger=logger,
              lbfgs_finetuning=False, writing_cycle=500)
 

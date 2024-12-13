@@ -130,13 +130,13 @@ def setup_pinn(file_path: str = 'burgers_shock.mat'):
      """
 
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS, device=DEVICE, file_path=file_path)
-    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition loss')
 
     sampler = nsolv.samplers.LHSSampler()
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
                             sampler, device=DEVICE)
 
-    pde_loss = nsolv.pinn.PDELoss(geometry, burger1D, name='1D Burgers equation')
+    pde_loss = nsolv.pinn.PDELoss(geometry, burger1D, name='PDE loss')
 
     model = nsolv.models.mlp.MLP(
         input_size=2, output_size=1, device=DEVICE,
@@ -158,10 +158,10 @@ def train_pinn_profiler(pinn, num_epochs):
     print(prof.key_averages(group_by_input_shape=True).table(sort_by="cpu_time_total", row_limit=10))
 
 
-def train_pinn(pinn, num_epochs):
+def train_pinn(pinn, num_epochs, logger = None):
     """Train the PINN model."""
     pinn.fit(num_epochs, checkpoint_path='checkpoint.pt', restart=True,
-        logger=None, lbfgs_finetuning=False, writing_cycle=1000)
+        logger=logger, lbfgs_finetuning=False, writing_cycle=1000)
 
 
 def plot_solution(pinn, t, x, exact_solution):
