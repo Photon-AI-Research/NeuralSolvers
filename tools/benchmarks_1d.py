@@ -9,7 +9,7 @@ def run_benchmarks():
     # the loggers store final loss for reasons of comparison
     burger_log = PythonLogger()
     heat_log = PythonLogger()
-    scrodinger_log = PythonLogger()
+    schrodinger_log = PythonLogger()
 
     print("*** Burgers Equation ***")
     pinn = Burgers_Equation.setup_pinn(file_path = '../examples/Burgers_Equation_1d/burgers_shock.mat')
@@ -28,7 +28,7 @@ def run_benchmarks():
     print("*** Schroedinger Equation ***")
     file_path = '../examples/Schroedinger_1d/NLS.mat'
     pinn = Schroedinger.setup_pinn(file_path=file_path)
-    Schroedinger.train_pinn(pinn, Schroedinger.NUM_EPOCHS, logger=scrodinger_log)
+    Schroedinger.train_pinn(pinn, Schroedinger.NUM_EPOCHS, logger=schrodinger_log)
     if (plot_results_debug):
         Schroedinger.plot_solution(pinn, file_path=file_path)
         Schroedinger.plot_exact_solution(file_path=file_path)
@@ -39,7 +39,7 @@ def run_benchmarks():
     print("*** Heat Equation ***")
     print(", ".join([f"{key}: {value}" for key, value in heat_log.loss_history.items()]))
     print("*** Schroedinger Equation ***")
-    print(", ".join([f"{key}: {value}" for key, value in scrodinger_log.loss_history.items()]))
+    print(", ".join([f"{key}: {value}" for key, value in schrodinger_log.loss_history.items()]))
 
 
 
