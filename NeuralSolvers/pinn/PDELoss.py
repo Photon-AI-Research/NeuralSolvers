@@ -1,8 +1,8 @@
 import torch
 from torch import Tensor as Tensor
 from torch.nn import Module as Module
-from .LossTerm import LossTerm
-from .Adaptive_Sampler import AdaptiveSampler
+from NeuralSolvers.LossTerm import LossTerm
+from NeuralSolvers.samplers.Adaptive_Sampler import AdaptiveSampler
 
 
 class PDELoss(LossTerm):

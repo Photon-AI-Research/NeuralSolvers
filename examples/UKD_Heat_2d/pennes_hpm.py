@@ -12,13 +12,13 @@ import NeuralSolvers as nsolv
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--identifier", type=str, default="UKD_DeepHPM")
+    parser.add_argument("--device", type = str, default = "GPU")
     # Learning parameters
     parser.add_argument("--name", type=str)
     parser.add_argument("--epochs", type=int, default=1000)
     parser.add_argument("--epochs_pt", type=int, default=10)
     parser.add_argument("--learning_rate", type=float, default=1e-4)
-    parser.add_argument("--use_gpu", type=int, default=1)
-    parser.add_argument("--use_horovod", type=int, default=0)
+
     parser.add_argument("--use_wandb", type=int, default=1)
     parser.add_argument("--weight", type=float, default=1.)
     parser.add_argument("--weight_hpm", type=float, default=1.)
@@ -100,8 +100,8 @@ if __name__ == "__main__":
     #     Output: du/dt value for the point.
     config = {'convection': 1, 'linear_u': 1, 'heat_source':1}       
     hpm_model = nsolv.models.PennesHPM(config, hs_net = hs_net)
-    hpm_loss = nsolv.HPMLoss.HPMLoss(dataset=pde_dataset, hpm_input=derivatives, hpm_model=hpm_model, name="Pennes Equation", weight=args.weight_hpm)
-    logger = nsolv.WandbLogger('thermal_hpm', args)
+    hpm_loss = nsolv.pinn.HPMLoss.HPMLoss(dataset=pde_dataset, hpm_input=derivatives, hpm_model=hpm_model, name="Pennes Equation", weight=args.weight_hpm)
+    logger = nsolv.loggers.WandbLogger('thermal_hpm', args)
     # Initialize and fit an physics-informed neural network
     pinn = nsolv.PINN(
         model,
@@ -110,6 +110,6 @@ if __name__ == "__main__":
         pde_loss=hpm_loss,
         initial_condition=initial_condition,
         boundary_condition=None,
-        use_gpu=args.use_gpu,
+        device=args.device,
         use_horovod=args.use_horovod)
     pinn.fit(pretraining = args.epochs_pt, epochs=args.epochs, epochs_pt=args.epochs_pt, optimizer='Adam', learning_rate=args.learning_rate, lbfgs_finetuning=False, pinn_path='./models/' + args.name+'_best_model_pinn.pt', hpm_path='./models/' + args.name+'_best_model_hpm.pt', logger=logger, writing_cycle=1)

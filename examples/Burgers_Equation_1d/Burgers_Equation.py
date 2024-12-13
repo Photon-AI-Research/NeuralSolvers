@@ -1,16 +1,17 @@
 import numpy as np
 import scipy.io
 import torch
-from torch import Tensor, ones, stack, load
+from torch import Tensor, ones
 from torch.autograd import grad
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
-import NeuralSolvers as nsolv
+
 from torch.profiler import profile, record_function, ProfilerActivity
 
+import NeuralSolvers as nsolv
 
 # Constants
-DEVICE = 'mps'
+DEVICE = 'cuda'
 NUM_EPOCHS = 1000  # 50000
 DOMAIN_LOWER_BOUND = np.array([-1, 0.0])
 DOMAIN_UPPER_BOUND = np.array([1.0, 1.0])
@@ -44,7 +45,7 @@ def burger1D(x, u):
 
 class InitialConditionDataset(Dataset):
 
-    def __init__(self, n0, device = 'cpu'):
+    def __init__(self, n0, device = 'cpu',file_path = 'burgers_shock.mat'):
         """
         Constructor of the boundary condition dataset
 
@@ -53,7 +54,7 @@ class InitialConditionDataset(Dataset):
         """
         super(type(self)).__init__()
         self.device = device
-        data = scipy.io.loadmat('burgers_shock.mat')
+        data = scipy.io.loadmat(file_path)
 
         t = data['t'].flatten()[:, None]
         x = data['x'].flatten()[:, None]
@@ -97,18 +98,47 @@ def load_burger_data(file_path: str = 'burgers_shock.mat'):
     return t, x, exact_solution
 
 
-def setup_pinn():
-    """Set up and return the PINN model."""
-    ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS, device=DEVICE)
-    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
+def setup_pinn(file_path: str = 'burgers_shock.mat'):
+    """Set up and return a Physics Informed Neural Network (PINN) for solving 1D Burgers equation.
 
-    sampler = nsolv.LHSSampler()
+     Creates a PINN with:
+     1. Initial condition dataset with NUM_INITIAL_POINTS training points
+     2. Latin Hypercube Sampling (LHS) for collocation points in the domain
+     3. PDE loss function for 1D Burgers equation
+     4. Multi-layer perceptron (MLP) as the neural network architecture
+
+     Architecture:
+         - Input size: 2 (x, t coordinates)
+         - Output size: 1 (u velocity)
+         - Hidden layers: 8 layers with 40 neurons each
+         - Activation: tanh
+         - Domain bounds: [DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND]
+
+     Components:
+         - Initial Condition: Sampled from exact solution at t=0
+         - Collocation Points: NUM_COLLOCATION_POINTS × NUM_COLLOCATION_POINTS grid
+         - PDE Loss: Enforces Burgers equation physics
+         - Boundary Conditions: None (assuming periodic or infinite domain)
+
+     Returns:
+         nsolv.PINN: Configured PINN model ready for training
+
+     Notes:
+         - Uses Latin Hypercube Sampling for optimal domain coverage
+         - All computations performed on specified DEVICE (CPU/GPU)
+         - Burgers equation: ∂u/∂t + u∂u/∂x = ν∂²u/∂x²
+     """
+
+    ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS, device=DEVICE, file_path=file_path)
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial condition')
+
+    sampler = nsolv.samplers.LHSSampler()
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
                             sampler, device=DEVICE)
 
-    pde_loss = nsolv.PDELoss(geometry, burger1D, name='1D Burgers equation')
+    pde_loss = nsolv.pinn.PDELoss(geometry, burger1D, name='1D Burgers equation')
 
-    model = nsolv.models.MLP(
+    model = nsolv.models.mlp.MLP(
         input_size=2, output_size=1, device=DEVICE,
         hidden_size=40, num_hidden=8, lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND,
         activation=torch.tanh

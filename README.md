@@ -45,7 +45,7 @@ The `1D_Burgers_Equation.py` script in the `examples` directory provides a compl
 To run this example:
 
 ```bash
-python examples/1D_Burgers_Equation.py
+python examples/Burgers_Equation_1d/Burgers_Equation.py
 ```
 
 We encourage you to explore this example to get a feel for how Neural Solvers works. You can use it as a template for solving your own PDEs or as a reference for understanding the library's structure.
