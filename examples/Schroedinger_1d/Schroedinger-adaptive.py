@@ -1,14 +1,17 @@
 import sys
 from argparse import ArgumentParser
-
 import numpy as np
 import scipy.io
-from torch import Tensor, ones, stack, load
-from torch.autograd import grad
+import torch
+from torch import Tensor
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
-
 import NeuralSolvers as nsolv
+from Schroedinger import schroedinger1d
+
+
+DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+
 
 
 class BoundaryConditionDataset(Dataset):
@@ -94,42 +97,15 @@ if __name__ == "__main__":
     ub = np.array([5.0, np.pi / 2])
     # initial condition
     ic_dataset = InitialConditionDataset(n0=args.n0)
-    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial condition')
     # boundary conditions
     bc_dataset = BoundaryConditionDataset(nb=args.nb, lb=lb, ub=ub)
-    periodic_bc_u = nsolv.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
-    periodic_bc_v = nsolv.PeriodicBC(bc_dataset, 1, "v periodic boundary condition")
-    periodic_bc_u_x = nsolv.PeriodicBC(bc_dataset, 0, "u_x periodic boundary condition", 1, 0)
-    periodic_bc_v_x = nsolv.PeriodicBC(bc_dataset, 1, "v_x periodic boundary condition", 1, 0)
+    periodic_bc_u = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
+    periodic_bc_v = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 1, "v periodic boundary condition")
+    periodic_bc_u_x = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 0, "u_x periodic boundary condition", 1, 0)
+    periodic_bc_v_x = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 1, "v_x periodic boundary condition", 1, 0)
 
 
-    def schroedinger1d(x, u):
-        pred = u
-        u = pred[:, 0]
-        v = pred[:, 1]
-        
-        grads = ones(u.shape, device=pred.device) # move to the same device as prediction
-        grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]
-        grad_v = grad(v, x, create_graph=True, grad_outputs=grads)[0]
-
-        # calculate first order derivatives
-        u_x = grad_u[:, 0]
-        u_t = grad_u[:, 1]
-
-        v_x = grad_v[:, 0]
-        v_t = grad_v[:, 1]
-
-        # calculate second order derivatives
-        grad_u_x = grad(u_x, x, create_graph=True, grad_outputs=grads)[0]
-        grad_v_x = grad(v_x, x, create_graph=True, grad_outputs=grads)[0]
-
-        u_xx = grad_u_x[:, 0]
-        v_xx = grad_v_x[:, 0]
-        f_u = u_t + 0.5 * v_xx + (u ** 2 + v ** 2) * v
-        f_v = v_t - 0.5 * u_xx - (u ** 2 + v ** 2) * u
-
-        return stack([f_u, f_v], 1)  # concatenate real part and imaginary part
-    
     model = nsolv.models.MLP(input_size=2,
                              output_size=2,
                              hidden_size=args.hidden_size,
@@ -138,19 +114,20 @@ if __name__ == "__main__":
                              ub=ub)
 
     # sampler
-    sampler = nsolv.AdaptiveSampler(args.ns, model, schroedinger1d)
+    sampler = nsolv.samplers.AdaptiveSampler(args.ns, model, schroedinger1d)
     
     # geometry of the domain
     geometry = nsolv.NDCube(lb, ub, args.nf, args.nf_batch, sampler)
     
-    pde_loss = nsolv.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
+    pde_loss = nsolv.pinn.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
 
 
-    logger = nsolv.WandbLogger('1D Schrödinger Equation', args, 'aipp')
+    #logger = nsolv.loggers.WandbLogger('1D Schrödinger Equation', args, 'aipp')
+    logger = None
     pinn = nsolv.PINN(model, 2, 2, pde_loss, initial_condition, [periodic_bc_u,
                                                                  periodic_bc_v,
                                                                  periodic_bc_u_x,
-                                                                 periodic_bc_v_x], use_gpu=True)
+                                                                 periodic_bc_v_x], device=DEVICE)
     pinn.fit(args.num_epochs, checkpoint_path='checkpoint.pt',
              restart=True, logger=logger, activate_annealing=args.annealing, annealing_cycle=args.annealing_cycle,
              writing_cycle=500,

@@ -1,18 +1,16 @@
 import torch
 import numpy as np
-from pyDOE import lhs
-from .Sampler import Sampler
+from NeuralSolvers.samplers.Sampler import Sampler
 
 
-class LHSSampler(Sampler):
-    def __init__(self, device = 'cpu'):
+class RandomSampler(Sampler):
+    def __init__(self):
         """
-        Constructor of the LHSSampler class
+        Constructor of the RandomSampler (pseudo random sampler) class       
         """
-        super(LHSSampler, self).__init__()
-        self.device = device
+        super(RandomSampler, self).__init__()        
 
-    def sample(self, lb, ub, n):        
+    def sample(self, lb, ub, n):
         """Generate 'n' number of sample points in [lb,ub]
         
         Args:
@@ -28,8 +26,5 @@ class LHSSampler(Sampler):
         ub =  ub.reshape(1,-1)
         
         dimension = lb.shape[1]
-        xf = lb + (ub - lb) * lhs(dimension, n)
-        xf_torch = torch.tensor(xf).float().to(self.device)
-
-
-        return xf_torch
+        xf = np.random.uniform(lb,ub,size=(n, dimension))
+        return torch.tensor(xf).float()

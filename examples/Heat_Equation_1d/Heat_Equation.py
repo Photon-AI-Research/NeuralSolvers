@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import NeuralSolvers as nsolv
 
 # Constants
-DEVICE = 'cpu'
+DEVICE = 'cuda'
 NUM_EPOCHS = 1000
 DOMAIN_LOWER_BOUND = np.array([0, 0.0])
 DOMAIN_UPPER_BOUND = np.array([1.0, 2.0])
@@ -39,17 +39,17 @@ class InitialConditionDataset(Dataset):
         u = (np.exp(-alpha * t)) * np.sin(np.pi * x / L)
 
         idx = np.random.choice(x.shape[0], n0, replace=False)
-        self.x = x[idx, :]
-        self.u = u[idx, :]
-        self.t = t[idx, :]
+        self.x = Tensor(x[idx, :]).float().to(DEVICE)
+        self.u = Tensor(u[idx, :]).float().to(DEVICE)
+        self.t = Tensor(t[idx, :]).float().to(DEVICE)
 
     def __len__(self):
         return 1
 
     def __getitem__(self, idx):
-        x = np.concatenate([self.x, self.t], axis=1)
+        x = torch.cat([self.x, self.t], dim=1)
         y = self.u
-        return Tensor(x).float(), Tensor(y).float()
+        return x,y
 
 
 class BoundaryConditionDataset(Dataset):
@@ -60,18 +60,18 @@ class BoundaryConditionDataset(Dataset):
         idx_t = np.random.choice(t.shape[0], nb, replace=False)
         tb = t[idx_t, :]
         x_val = DOMAIN_LOWER_BOUND[0] if is_lower else DOMAIN_UPPER_BOUND[0]
-        self.x_b = np.concatenate((np.full_like(tb, x_val), tb), 1)
+        self.x_b = Tensor(np.concatenate((np.full_like(tb, x_val), tb), 1)).float().to(DEVICE)
 
     def __len__(self):
         return 1
 
     def __getitem__(self, idx):
-        return Tensor(self.x_b).float()
+        return self.x_b
 
 
 def setup_pinn():
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS)
-    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition loss')
 
     bc_dataset_lb = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS, is_lower=True)
     bc_dataset_ub = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS, is_lower=False)
@@ -79,13 +79,13 @@ def setup_pinn():
     def dirichlet_func(x):
         return torch.zeros_like(x)[:, 0].reshape(-1, 1)
 
-    dirichlet_bc_lb = nsolv.DirichletBC(dirichlet_func, bc_dataset_lb, name='Lower dirichlet BC')
-    dirichlet_bc_ub = nsolv.DirichletBC(dirichlet_func, bc_dataset_ub, name='Upper dirichlet BC')
+    dirichlet_bc_lb = nsolv.pinn.datasets.DirichletBC(dirichlet_func, bc_dataset_lb, name='Lower dirichlet BC')
+    dirichlet_bc_ub = nsolv.pinn.datasets.DirichletBC(dirichlet_func, bc_dataset_ub, name='Upper dirichlet BC')
 
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
-                            nsolv.LHSSampler(), device=DEVICE)
+                            nsolv.samplers.LHSSampler(), device=DEVICE)
 
-    pde_loss = nsolv.PDELoss(geometry, heat1d, name='1D Heat', weight=1)
+    pde_loss = nsolv.pinn.PDELoss(geometry, heat1d, name='PDE loss', weight=1)
 
     model = nsolv.models.MLP(
         input_size=2, output_size=1, device=DEVICE,
@@ -93,11 +93,10 @@ def setup_pinn():
         activation=torch.tanh
     )
 
-    return nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_lb, dirichlet_bc_ub], device=DEVICE)
+    return nsolv.pinn.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_lb, dirichlet_bc_ub], device=DEVICE)
 
 
-def train_pinn(pinn, num_epochs):
-    logger = None
+def train_pinn(pinn, num_epochs, logger = None):
     #logger = nsolv.WandbLogger("1D Heat equation pinn", {"num_epochs": num_epochs})
     pinn.fit(num_epochs, checkpoint_path='checkpoint.pt', restart=True, logger=logger,
              lbfgs_finetuning=False, pretraining=True)

@@ -1,6 +1,6 @@
 import torch
 import numpy as np
-from .Sampler import Sampler
+from NeuralSolvers.samplers.Sampler import Sampler
 
 
 class AdaptiveSampler(Sampler):

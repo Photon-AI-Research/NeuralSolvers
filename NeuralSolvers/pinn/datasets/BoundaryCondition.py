@@ -1,4 +1,4 @@
-from .LossTerm import LossTerm
+from NeuralSolvers.LossTerm import LossTerm
 from torch.autograd import grad
 from torch import ones
 

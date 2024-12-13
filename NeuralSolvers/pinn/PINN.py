@@ -7,14 +7,14 @@ from os.path import exists
 from datetime import datetime
 from itertools import chain
 from torch.utils.data import DataLoader
-from .InitalCondition import InitialCondition
-from .BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC, TimeDerivativeBC
+from NeuralSolvers.pinn.datasets.InitalCondition import InitialCondition
+from NeuralSolvers.pinn.datasets.BoundaryCondition import BoundaryCondition, PeriodicBC, DirichletBC, NeumannBC, RobinBC, TimeDerivativeBC
 from .PDELoss import PDELoss
-from .JoinedDataset import JoinedDataset
+from NeuralSolvers.JoinedDataset import JoinedDataset
 from .HPMLoss import HPMLoss
-from .Adaptive_Sampler import AdaptiveSampler
+from NeuralSolvers.samplers.Adaptive_Sampler import AdaptiveSampler
 from torch.autograd import grad as grad
-from NeuralSolvers.callbacks import CallbackList
+from NeuralSolvers.callbacks.Callback import CallbackList
 #from pyevtk.hl import imageToVTK
 
 try:
@@ -104,6 +104,10 @@ class PINN(nn.Module):
         self.initial_condition = initial_condition
 
     def _validate_and_set_boundary_conditions(self, boundary_condition):
+        if boundary_condition is None:
+            boundary_condition = None
+            return
+
         if isinstance(boundary_condition, list):
             for bc in boundary_condition:
                 self._validate_single_boundary_condition(bc)

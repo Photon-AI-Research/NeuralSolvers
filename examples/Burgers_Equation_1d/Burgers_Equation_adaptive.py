@@ -6,6 +6,7 @@ from torch.autograd import grad
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import NeuralSolvers as nsolv
+from Burgers_Equation import burger1D
 
 # Constants
 DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -17,19 +18,6 @@ NOISE = 0.0
 NUM_INITIAL_POINTS = 100
 NUM_COLLOCATION_POINTS = 10000
 ADAPTIVE_SAMPLE_SIZE = 5000
-
-
-def burger1D(x, u):
-    grads = ones(u.shape, device=u.device)
-    grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]
-    u_x, u_t = grad_u[:, 0], grad_u[:, 1]
-
-    grads = ones(u_x.shape, device=u.device)
-    u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 0]
-
-    u_x, u_t, u_xx = [tensor.reshape(-1, 1) for tensor in (u_x, u_t, u_xx)]
-
-    return u_t + u * u_x - VISCOSITY * u_xx
 
 
 class InitialConditionDataset(Dataset):
@@ -73,7 +61,7 @@ def load_burger_data(file_path='burgers_shock.mat'):
 
 def setup_pinn():
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS, device=DEVICE)
-    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial condition')
 
     model = nsolv.models.MLP(
         input_size=2, output_size=1, device=DEVICE,
@@ -81,13 +69,13 @@ def setup_pinn():
         activation=torch.tanh
     )
 
-    sampler = nsolv.AdaptiveSampler(ADAPTIVE_SAMPLE_SIZE, model, burger1D)
+    sampler = nsolv.samplers.AdaptiveSampler(ADAPTIVE_SAMPLE_SIZE, model, burger1D)
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
                             sampler, device=DEVICE)
 
-    pde_loss = nsolv.PDELoss(geometry, burger1D, name='1D Burgers equation')
+    pde_loss = nsolv.pinn.PDELoss(geometry, burger1D, name='1D Burgers equation')
 
-    return nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], device=DEVICE)
+    return nsolv.pinn.PINN(model, 2, 1, pde_loss, initial_condition, [], device=DEVICE)
 
 
 def train_pinn(pinn, num_epochs):

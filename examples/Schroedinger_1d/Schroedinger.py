@@ -37,59 +37,62 @@ def schroedinger1d(x, u):
 
 
 class InitialConditionDataset(Dataset):
-    def __init__(self, n0):
+    def __init__(self, n0, file_path = 'NLS.mat'):
         super().__init__()
-        data = scipy.io.loadmat('NLS.mat')
+        data = scipy.io.loadmat(file_path)
         x = data['x'].flatten()[:, None]
         Exact = data['uu']
         Exact_u = np.real(Exact)
         Exact_v = np.imag(Exact)
         idx_x = np.random.choice(x.shape[0], n0, replace=False)
-        self.x = x[idx_x, :]
-        self.u = Exact_u[idx_x, 0:1]
-        self.v = Exact_v[idx_x, 0:1]
-        self.t = np.zeros(self.x.shape)
+        self.x = Tensor(x[idx_x, :]).to(DEVICE).float()
+        self.u = Tensor(Exact_u[idx_x, 0:1]).to(DEVICE).float()
+        self.v = Tensor(Exact_v[idx_x, 0:1]).to(DEVICE).float()
+        self.t = Tensor(np.zeros(self.x.shape)).to(DEVICE).float()
 
     def __len__(self):
         return 1
 
     def __getitem__(self, idx):
-        x = np.concatenate([self.x, self.t], axis=1)
-        y = np.concatenate([self.u, self.v], axis=1)
-        return Tensor(x).float(), Tensor(y).float()
+        x = torch.cat([self.x, self.t], dim=1)
+        y = torch.cat([self.u, self.v], dim=1)
+
+        return x,y
 
 
 class BoundaryConditionDataset(Dataset):
-    def __init__(self, nb):
+    def __init__(self, nb, file_path = 'NLS.mat'):
         super().__init__()
-        data = scipy.io.loadmat('NLS.mat')
+        data = scipy.io.loadmat(file_path)
         t = data['tt'].flatten()[:, None]
         idx_t = np.random.choice(t.shape[0], nb, replace=False)
         tb = t[idx_t, :]
         self.x_lb = np.concatenate((np.full_like(tb, DOMAIN_LOWER_BOUND[0]), tb), 1)
         self.x_ub = np.concatenate((np.full_like(tb, DOMAIN_UPPER_BOUND[0]), tb), 1)
+        self.x_lb = Tensor(self.x_lb).float().to(DEVICE)
+        self.x_ub = Tensor(self.x_ub).float().to(DEVICE)
 
     def __len__(self):
         return 1
 
     def __getitem__(self, idx):
-        return Tensor(self.x_lb).float(), Tensor(self.x_ub).float()
+        return self.x_lb, self.x_ub
 
 
-def setup_pinn():
-    ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS)
-    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
+def setup_pinn(file_path = 'NLS.mat'):
+    ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS,file_path=file_path)
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition loss')
 
-    bc_dataset = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS)
-    periodic_bc_u = nsolv.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
-    periodic_bc_v = nsolv.PeriodicBC(bc_dataset, 1, "v periodic boundary condition")
-    periodic_bc_u_x = nsolv.PeriodicBC(bc_dataset, 0, "u_x periodic boundary condition", 1, 0)
-    periodic_bc_v_x = nsolv.PeriodicBC(bc_dataset, 1, "v_x periodic boundary condition", 1, 0)
+    bc_dataset = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS,file_path=file_path)
+    periodic_bc_u = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
+    periodic_bc_v = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 1, "v periodic boundary condition")
+    periodic_bc_u_x = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 0, "u_x periodic boundary condition", 1, 0)
+    periodic_bc_v_x = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 1, "v_x periodic boundary condition", 1, 0)
 
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
-                            nsolv.LHSSampler(), device=DEVICE)
+                            nsolv.samplers.LHSSampler(), device=DEVICE)
 
-    pde_loss = nsolv.PDELoss(geometry, schroedinger1d, name='1D Schrodinger')
+    pde_loss = nsolv.pinn.PDELoss(geometry, schroedinger1d, name='PDE loss')
 
     model = nsolv.models.MLP(
         input_size=2, output_size=2, device=DEVICE,
@@ -101,15 +104,14 @@ def setup_pinn():
                       [periodic_bc_u, periodic_bc_v, periodic_bc_u_x, periodic_bc_v_x], device=DEVICE)
 
 
-def train_pinn(pinn, num_epochs):
+def train_pinn(pinn, num_epochs, logger = None):
     #logger = nsolv.WandbLogger('1D Schrödinger Equation', {"num_epochs": num_epochs})
-    logger = None
     pinn.fit(num_epochs, checkpoint_path='checkpoint.pt', restart=True, logger=logger,
              lbfgs_finetuning=False, writing_cycle=500)
 
 
-def plot_solution(pinn):
-    data = scipy.io.loadmat('NLS.mat')
+def plot_solution(pinn, file_path = 'NLS.mat'):
+    data = scipy.io.loadmat(file_path)
     t = data['tt'].flatten()[:, None]
     x = data['x'].flatten()[:, None]
     X, T = np.meshgrid(x, t)
@@ -131,8 +133,8 @@ def plot_solution(pinn):
     plt.show()
 
 
-def plot_exact_solution():
-    data = scipy.io.loadmat('NLS.mat')
+def plot_exact_solution(file_path = 'NLS.mat'):
+    data = scipy.io.loadmat(file_path)
     t = data['tt'].flatten()[:, None]
     x = data['x'].flatten()[:, None]
     Exact = data['uu']
@@ -151,8 +153,8 @@ def plot_exact_solution():
     plt.show()
 
 
-def compare_solutions(pinn):
-    data = scipy.io.loadmat('NLS.mat')
+def compare_solutions(pinn, file_path = 'NLS.mat'):
+    data = scipy.io.loadmat(file_path)
     t = data['tt'].flatten()[:, None]
     x = data['x'].flatten()[:, None]
     Exact = data['uu']

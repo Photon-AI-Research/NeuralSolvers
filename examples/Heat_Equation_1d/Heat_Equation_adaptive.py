@@ -6,8 +6,10 @@ from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import NeuralSolvers as nsolv
 
+from Heat_Equation import heat1d
+
 # Constants
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cpu' if torch.cuda.is_available() else 'cpu'
 NUM_EPOCHS = 10000
 DOMAIN_LOWER_BOUND = np.array([0, 0.0])
 DOMAIN_UPPER_BOUND = np.array([1.0, 2.0])
@@ -17,18 +19,6 @@ NUM_COLLOCATION_POINTS = 20000
 NUM_SEED_POINTS = 10000
 HIDDEN_SIZE = 100
 NUM_HIDDEN = 4
-
-def heat1d(x, u):
-    grads = ones(u.shape, device=u.device)
-    grad_u = grad(u, x, create_graph=True, grad_outputs=grads)[0]
-    u_x, u_t = grad_u[:, 0], grad_u[:, 1]
-
-    grads = ones(u_x.shape, device=u.device)
-    u_xx = grad(u_x, x, create_graph=True, grad_outputs=grads)[0][:, 0]
-
-    u_x, u_t, u_xx = [tensor.reshape(-1, 1) for tensor in (u_x, u_t, u_xx)]
-
-    return u_t - u_xx
 
 class InitialConditionDataset(Dataset):
     def __init__(self, n0):
@@ -68,7 +58,7 @@ class BoundaryConditionDataset(Dataset):
 
 def setup_pinn():
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS)
-    initial_condition = nsolv.InitialCondition(ic_dataset, name='Initial condition')
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial condition')
 
     bc_dataset_lb = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS, is_lower=True)
     bc_dataset_ub = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS, is_lower=False)
@@ -76,8 +66,8 @@ def setup_pinn():
     def dirichlet_func(x):
         return torch.zeros_like(x)[:, 0].reshape(-1, 1)
 
-    dirichlet_bc_lb = nsolv.DirichletBC(dirichlet_func, bc_dataset_lb, name='Lower dirichlet BC')
-    dirichlet_bc_ub = nsolv.DirichletBC(dirichlet_func, bc_dataset_ub, name='Upper dirichlet BC')
+    dirichlet_bc_lb = nsolv.pinn.datasets.DirichletBC(dirichlet_func, bc_dataset_lb, name='Lower dirichlet BC')
+    dirichlet_bc_ub = nsolv.pinn.datasets.DirichletBC(dirichlet_func, bc_dataset_ub, name='Upper dirichlet BC')
 
     model = nsolv.models.MLP(
         input_size=2, output_size=1, device=DEVICE,
@@ -85,13 +75,13 @@ def setup_pinn():
         lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND
     )
 
-    sampler = nsolv.AdaptiveSampler(NUM_SEED_POINTS, model, heat1d)
+    sampler = nsolv.samplers.AdaptiveSampler(NUM_SEED_POINTS, model, heat1d)
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
                             sampler, device=DEVICE)
 
-    pde_loss = nsolv.PDELoss(geometry, heat1d, name='1D Heat')
+    pde_loss = nsolv.pinn.PDELoss(geometry, heat1d, name='1D Heat')
 
-    return nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_lb, dirichlet_bc_ub], device=DEVICE)
+    return nsolv.pinn.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_lb, dirichlet_bc_ub], device=DEVICE)
 
 def train_pinn(pinn):
     '''logger = nsolv.WandbLogger("1D Heat equation pinn", {

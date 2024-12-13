@@ -8,7 +8,7 @@ import NeuralSolvers as nsolv
 import wandb
 
 # Constants
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cpu' if torch.cuda.is_available() else 'cpu'
 NUM_EPOCHS = 10000
 DOMAIN_LOWER_BOUND = np.array([0, 0.0])
 DOMAIN_UPPER_BOUND = np.array([1.0, 2.0])
@@ -61,14 +61,14 @@ class InitialConditionDataset(Dataset):
 
 def setup_pinn(args):
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS)
-    initial_condition = nsolv.InitialCondition(ic_dataset, name='Interpolation condition')
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Interpolation condition')
 
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
-                            nsolv.LHSSampler(), device=DEVICE)
+                            nsolv.samplers.LHSSampler(), device=DEVICE)
 
     hpm_model = HPM_model()
     #wandb.watch(hpm_model)
-    pde_loss = nsolv.HPMLoss(geometry, "HPM_loss", derivatives, hpm_model)
+    pde_loss = nsolv.pinn.HPMLoss(geometry, "HPM_loss", derivatives, hpm_model)
 
     model = nsolv.models.MLP(
         input_size=2, output_size=1, device=DEVICE,
@@ -76,7 +76,7 @@ def setup_pinn(args):
         lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND
     )
 
-    return nsolv.PINN(model, 2, 1, pde_loss, initial_condition, boundary_condition=None, device=DEVICE)
+    return nsolv.pinn.PINN(model, 2, 1, pde_loss, initial_condition, boundary_condition=None, device=DEVICE)
 
 def train_pinn(pinn, args):
     #logger = nsolv.WandbLogger("1D Heat equation inversion", args)

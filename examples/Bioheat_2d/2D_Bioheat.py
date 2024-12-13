@@ -3,6 +3,8 @@ from Datasets import *
 from argparse import ArgumentParser
 import NeuralSolvers as nsolv
 
+DEVICE = "gpu"
+
 if __name__ == "__main__":
 
     parser = ArgumentParser()
@@ -28,7 +30,8 @@ if __name__ == "__main__":
         numBatches=args.numBatches,
         nt=args.nt,
         timeStep=args.timeStep)
-    initial_condition = nsolv.InitialCondition(ic_dataset)
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name = "IC Bioheat")
+
     # PDE dataset
     pde_dataset = PDEDataset(
         pData=args.pData,
@@ -48,6 +51,7 @@ if __name__ == "__main__":
                                  num_hidden=args.num_hidden_alpha,
                                  lb=ic_dataset.lb[:3],  #lb for x,y,t
                                  ub=ic_dataset.ub[:3]) #ub for x,y,t
+
     # Heat source model - part of du/dt that cannot be explained by conduction
     # Input: spatiotemporal coordinates of a point x,y,t
     # Output: heat source value for the point
@@ -57,6 +61,7 @@ if __name__ == "__main__":
                                        num_hidden=args.num_hidden_hs,
                                        lb=ic_dataset.lb[:3],  #lb for x,y,t
                                        ub=ic_dataset.ub[:3]) #ub for x,y,t
+
     # PINN model
     # Input: spatiotemporal coordinates of a point x,y,t
     # Output: temperature u at the point
@@ -71,7 +76,7 @@ if __name__ == "__main__":
     # Forward pass input: output of the derivatives function for a point x,y,t
     # Forward pass output: du/dt value for the point
     hpm_model = nsolv.models.MultiModelHPM(alpha_net, heat_source_net)
-    hpm_loss = nsolv.HPMLoss.HPMLoss(pde_dataset, derivatives, hpm_model)
+    hpm_loss = nsolv.pinn.HPMLoss(pde_dataset, derivatives, hpm_model)
     pinn = nsolv.PINN(
         model,
         input_dimension=6,
@@ -79,6 +84,6 @@ if __name__ == "__main__":
         pde_loss=hpm_loss,
         initial_condition=initial_condition,
         boundary_condition=None,
-        use_gpu=False)
+        device=DEVICE)
 
     pinn.fit(args.epochs, 'Adam', 1e-6)
