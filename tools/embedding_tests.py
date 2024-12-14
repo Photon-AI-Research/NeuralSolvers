@@ -31,6 +31,7 @@ def  run_test():
 
     print("mu")
 
+    ModulatedMLP
 
 if __name__ == "__main__":
     run_test()
