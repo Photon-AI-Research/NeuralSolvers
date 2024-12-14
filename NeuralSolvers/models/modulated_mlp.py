@@ -1,6 +1,7 @@
 import warnings
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torchvision.models import vit_b_16, vit_l_16, vit_l_32
 from torchvision.transforms import Compose, Resize, Normalize, ToTensor
 from .mlp import set_seed
@@ -122,13 +123,28 @@ class ModulatedMLP(nn.Module):
 
         modulation_terms = modulation_terms.view(-1, len(self.linear_layers) - 2, self.linear_layers[1].bias.size(0))
 
-
+        '''
         # Forward pass with bias modulation
         # Start with i = 1
         for i in range(len(self.linear_layers) - 2):
             x = self.linear_layers[i+1](x)
             bias = self.linear_layers[i+1].bias + modulation_terms[:, i]
             x = self.activation(x + bias)  # Apply modulated bias
+        '''
+
+        # Forward pass with full weight modulation
+        for i in range(len(self.linear_layers) - 2):
+            wi = self.linear_layers[i + 1].weight  # Shape: [out_features, in_features]
+            bi = self.linear_layers[i + 1].bias  # Shape: [out_features]
+            modi = modulation_terms[:, i]  # Shape: [batch_size, out_features]
+
+            x = x * modi
+
+            # Standard linear transformation
+            x = x + torch.matmul(x, wi.T) + bi  # Shape: [batch_size, out_features]
+
+            # Activation
+            x = self.activation(x)
 
         # Final layer
         x = self.linear_layers[-1](x)

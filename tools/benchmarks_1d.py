@@ -38,7 +38,14 @@ def run_benchmarks():
     )
     pinn = Burgers_Equation.setup_pinn(model=model, file_path = '../examples/Burgers_Equation_1d/burgers_shock.mat')
 
-    #vitl16 with sigmoid
+    #premodulation
+    #[2024-12-14 23:03:02.502914]:Epoch 1000/1000 | PINN Loss 0.0066323378 | Initial Condition loss: 0.003978 | PDE loss: 0.002655 | Epoch Duration 0.02852
+
+
+    #row-wise weight modulation: vitl16 with sigmoid
+    #[2024-12-14 22:43:29.927329]:Epoch 1000/1000 | PINN Loss 0.0088416664 | Initial Condition loss: 0.005395 | PDE loss: 0.003446 | Epoch Duration 0.13962
+
+    #bias modulation: vitl16 with sigmoid
     #[2024-12-14 22:20:30.113214]:Epoch 1000/1000 | PINN Loss 0.0093754334 | Initial Condition loss: 0.005757 | PDE loss: 0.003618 | Epoch Duration 0.03798
 
     ## original PINN
