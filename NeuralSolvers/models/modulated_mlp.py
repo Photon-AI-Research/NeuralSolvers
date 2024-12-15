@@ -36,8 +36,9 @@ class ModulatedMLP(nn.Module):
         _,self.vit_embedding_dim = self.z_i.shape
         nfeat_mod = 128
         # Modulation network to process ViT embeddings
+        #nn.Linear(self.vit_embedding_dim+hidden_size, nfeat_mod),
         self.modulation_network = nn.Sequential(
-            nn.Linear(self.vit_embedding_dim+hidden_size, nfeat_mod),
+            nn.Linear(hidden_size, nfeat_mod),
             nn.ReLU(),
             nn.Linear(nfeat_mod, hidden_size * num_hidden)
         )
@@ -118,7 +119,7 @@ class ModulatedMLP(nn.Module):
         # Compute modulation terms
         z_expanded = self.z_i.expand(noPoints, -1)  # becomes noPoints x 1000, more memory efficient than repeat
         mod_net_input = torch.cat([z_expanded, x], dim=1) # z_i + h_0
-        modulation_terms = self.modulation_network(mod_net_input)  # Shape: (batch_size, hidden_size * num_hidden)
+        modulation_terms = self.modulation_network(x)  # Shape: (batch_size, hidden_size * num_hidden)
         modulation_terms = torch.sigmoid(modulation_terms)
 
         modulation_terms = modulation_terms.view(-1, len(self.linear_layers) - 2, self.linear_layers[1].bias.size(0))
