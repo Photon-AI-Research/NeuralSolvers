@@ -49,10 +49,10 @@ def run_benchmarks():
     # [2024-12-14 21:57:03.422603]:Epoch 1000/1000 | PINN Loss 0.0302316695 | Initial Condition loss: 0.020797 | PDE loss: 0.009435 | Epoch Duration 0.00928
 
     pinn = Burgers_Equation.setup_pinn(model=model, file_path = '../examples/Burgers_Equation_1d/burgers_shock.mat')
-    Burgers_Equation.train_pinn(pinn, Burgers_Equation.NUM_EPOCHS, logger=burger_log_mod)
+    #Burgers_Equation.train_pinn(pinn, Burgers_Equation.NUM_EPOCHS, logger=burger_log_mod)
 
     pinn = Burgers_Equation.setup_pinn(model=None, file_path = '../examples/Burgers_Equation_1d/burgers_shock.mat')
-    Burgers_Equation.train_pinn(pinn, Burgers_Equation.NUM_EPOCHS, logger=burger_log)
+    #Burgers_Equation.train_pinn(pinn, Burgers_Equation.NUM_EPOCHS, logger=burger_log)
 
     if(plot_results_debug):
         t, x, exact_solution = Burgers_Equation.load_burger_data(file_path = '../examples/Burgers_Equation_1d/burgers_shock.mat')
@@ -82,8 +82,14 @@ def run_benchmarks():
     pinn = Heat_Equation.setup_pinn(model=model)
     Heat_Equation.train_pinn(pinn, Heat_Equation.NUM_EPOCHS, logger=heat_log_mod)
 
+    Heat_Equation.plot_solution(pinn)
+    Heat_Equation.plot_analytical_solution()
+
     pinn = Heat_Equation.setup_pinn(model=None)
     Heat_Equation.train_pinn(pinn, Heat_Equation.NUM_EPOCHS, logger=heat_log)
+
+    Heat_Equation.plot_solution(pinn)
+    Heat_Equation.plot_analytical_solution()
 
     if (plot_results_debug):
         Heat_Equation.plot_solution(pinn)
@@ -109,10 +115,10 @@ def run_benchmarks():
         activation=torch.tanh
     )
     pinn = Schroedinger.setup_pinn(file_path=file_path, model=model)
-    Schroedinger.train_pinn(pinn, Schroedinger.NUM_EPOCHS, logger=schrodinger_log_mod)
+    #Schroedinger.train_pinn(pinn, Schroedinger.NUM_EPOCHS, logger=schrodinger_log_mod)
 
     pinn = Schroedinger.setup_pinn(file_path=file_path, model=None)
-    Schroedinger.train_pinn(pinn, Schroedinger.NUM_EPOCHS, logger=schrodinger_log)
+    #Schroedinger.train_pinn(pinn, Schroedinger.NUM_EPOCHS, logger=schrodinger_log)
 
     if (plot_results_debug):
         Schroedinger.plot_solution(pinn, file_path=file_path)
@@ -131,7 +137,17 @@ def run_benchmarks():
     print(", ".join([f"{key}: {value}" for key, value in schrodinger_log.loss_history.items()]))
     print(", ".join([f"{key}: {value}" for key, value in schrodinger_log_mod.loss_history.items()]))
 
-
+    '''
+    *** Burgers Equation ***
+    Baseline PINN: 0.009729756973683834, Non-Weighted PINN Loss: 0.004864878486841917, Initial Condition: 0.00315843359567225, PDE: 0.0017064448911696672, Initial Condition_weight: 1.0, PDE_weight: 1.0
+    Modulated PINN: 0.0039318641647696495, Non-Weighted PINN Loss: 0.0019659320823848248, Initial Condition: 0.0007832138217054307, PDE: 0.001182718318887055, Initial Condition_weight: 1.0, PDE_weight: 1.0
+    *** Heat Equation ***
+    Baseline PINN: 0.0004343787732068449, Non-Weighted PINN Loss: 0.00010859469330171123, Initial Condition loss: 2.2767631890019402e-05, PDE loss: 7.915394962765276e-05, Lower dirichlet BC: 3.209661826986121e-06, Upper dirichlet BC: 3.463446319074137e-06, Initial Condition loss_weight: 1.0, PDE loss_weight: 1, Lower dirichlet BC_weight: 1.0, Upper dirichlet BC_weight: 1.0
+    Modulated PINN: 0.0007307189516723156, Non-Weighted PINN Loss: 0.0001826797379180789, Initial Condition loss: 3.6458401154959574e-05, PDE loss: 0.00012835663801524788, Lower dirichlet BC: 1.0459781151439529e-05, Upper dirichlet BC: 7.4049144132004585e-06, Initial Condition loss_weight: 1.0, PDE loss_weight: 1, Lower dirichlet BC_weight: 1.0, Upper dirichlet BC_weight: 1.0
+    *** Schroedinger Equation ***
+    Baseline PINN: 0.020892612636089325, Non-Weighted PINN Loss: 0.003482102183625102, Initial Condition loss: 0.0018387357704341412, PDE loss: 0.0016373837133869529, u periodic boundary condition: 7.1095240627983e-07, v periodic boundary condition: 4.5075793764226546e-07, u_x periodic boundary condition: 3.362873030710034e-06, v_x periodic boundary condition: 1.4582412859454053e-06, Initial Condition loss_weight: 1.0, PDE loss_weight: 1.0, u periodic boundary condition_weight: 1.0, v periodic boundary condition_weight: 1.0, u_x periodic boundary condition_weight: 1.0, v_x periodic boundary condition_weight: 1.0
+    Modulated PINN: 0.0006141893682070076, Non-Weighted PINN Loss: 0.00010236489470116794, Initial Condition loss: 6.0788215705542825e-06, PDE loss: 9.093437984120101e-05, u periodic boundary condition: 3.1029617275635246e-07, v periodic boundary condition: 4.458372131921351e-06, u_x periodic boundary condition: 3.841959141936968e-07, v_x periodic boundary condition: 1.9883377433416172e-07, Initial Condition loss_weight: 1.0, PDE loss_weight: 1.0, u periodic boundary condition_weight: 1.0, v periodic boundary condition_weight: 1.0, u_x periodic boundary condition_weight: 1.0, v_x periodic boundary condition_weight: 1.0
+    '''
 
 if __name__ == "__main__":
     run_benchmarks()
