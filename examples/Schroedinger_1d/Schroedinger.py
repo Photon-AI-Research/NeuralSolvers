@@ -8,14 +8,13 @@ import matplotlib.pyplot as plt
 import NeuralSolvers as nsolv
 
 # Constants
-DEVICE = 'cuda' if torch.cuda.is_available() else 'cpu'
+DEVICE = 'cuda' if torch.cuda.is_available() else 'mps'
 NUM_EPOCHS = 1000 # 10000
 DOMAIN_LOWER_BOUND = np.array([-5.0, 0.0])
 DOMAIN_UPPER_BOUND = np.array([5.0, np.pi / 2])
 NUM_INITIAL_POINTS = 50
 NUM_BOUNDARY_POINTS = 50
 NUM_COLLOCATION_POINTS = 20000
-
 
 def schroedinger1d(x, u):
     u_real, u_imag = u[:, 0], u[:, 1]
@@ -79,7 +78,7 @@ class BoundaryConditionDataset(Dataset):
         return self.x_lb, self.x_ub
 
 
-def setup_pinn(file_path = 'NLS.mat'):
+def setup_pinn(file_path = 'NLS.mat', model = None):
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS,file_path=file_path)
     initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition loss')
 
@@ -94,11 +93,12 @@ def setup_pinn(file_path = 'NLS.mat'):
 
     pde_loss = nsolv.pinn.PDELoss(geometry, schroedinger1d, name='PDE loss')
 
-    model = nsolv.models.MLP(
-        input_size=2, output_size=2, device=DEVICE,
-        hidden_size=100, num_hidden=4, lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND,
-        activation=torch.tanh
-    )
+    if(model is None):
+        model = nsolv.models.MLP(
+            input_size=2, output_size=2, device=DEVICE,
+            hidden_size=100, num_hidden=4, lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND,
+            activation=torch.tanh
+        )
 
     return nsolv.PINN(model, 2, 2, pde_loss, initial_condition,
                       [periodic_bc_u, periodic_bc_v, periodic_bc_u_x, periodic_bc_v_x], device=DEVICE)

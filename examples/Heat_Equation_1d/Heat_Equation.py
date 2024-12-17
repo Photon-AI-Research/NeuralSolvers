@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import NeuralSolvers as nsolv
 
 # Constants
-DEVICE = 'cuda'
+DEVICE = 'cuda' if torch.cuda.is_available() else 'mps'
 NUM_EPOCHS = 1000
 DOMAIN_LOWER_BOUND = np.array([0, 0.0])
 DOMAIN_UPPER_BOUND = np.array([1.0, 2.0])
@@ -69,7 +69,7 @@ class BoundaryConditionDataset(Dataset):
         return self.x_b
 
 
-def setup_pinn():
+def setup_pinn(model = None):
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS)
     initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition loss')
 
@@ -87,11 +87,12 @@ def setup_pinn():
 
     pde_loss = nsolv.pinn.PDELoss(geometry, heat1d, name='PDE loss', weight=1)
 
-    model = nsolv.models.MLP(
-        input_size=2, output_size=1, device=DEVICE,
-        hidden_size=100, num_hidden=4, lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND,
-        activation=torch.tanh
-    )
+    if(model is None):
+        model = nsolv.models.MLP(
+            input_size=2, output_size=1, device=DEVICE,
+            hidden_size=100, num_hidden=4, lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND,
+            activation=torch.tanh
+        )
 
     return nsolv.pinn.PINN(model, 2, 1, pde_loss, initial_condition, [dirichlet_bc_lb, dirichlet_bc_ub], device=DEVICE)
 

@@ -7,8 +7,8 @@ from torchvision.transforms import Compose, Resize, Normalize, ToTensor
 from .mlp import set_seed
 
 class ModulatedMLP(nn.Module):
-    def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub, u_i,
-                 activation=torch.tanh, normalize=True, device='cpu'):
+    def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub,
+                 activation=torch.tanh, normalize=True, nfeat_mod = 128, device='cpu'):
         """
         MLP with bias modulation using embeddings from a ViT model.
 
@@ -32,42 +32,15 @@ class ModulatedMLP(nn.Module):
         self.ub = torch.Tensor(ub).float()
         self.normalize = normalize
         self.device = device
-        self.z_i = self.embed_u(u_i)
-        _,self.vit_embedding_dim = self.z_i.shape
-        nfeat_mod = 128
-        # Modulation network to process ViT embeddings
-        #nn.Linear(self.vit_embedding_dim+hidden_size, nfeat_mod),
+        self.nfeat_mod = nfeat_mod
+        # Modulation network to process spatio-temporal information of h_1
         self.modulation_network = nn.Sequential(
-            nn.Linear(hidden_size, nfeat_mod),
+            nn.Linear(hidden_size, self.nfeat_mod),
             nn.ReLU(),
-            nn.Linear(nfeat_mod, hidden_size * num_hidden)
+            nn.Linear(self.nfeat_mod, hidden_size * num_hidden)
         )
 
         self.init_layers(input_size, output_size, hidden_size, num_hidden)
-
-
-
-    def embed_u(self, u_i):
-        u_i = u_i.unsqueeze(0).unsqueeze(0).repeat(1, 3, 1, 1)
-
-        vit_model = vit_l_16(pretrained=True).to(self.device)
-        vit_model.eval()  # Set to evaluation mode
-        vit_transform = Compose([
-            Resize((224, 224)),  # Resize to ViT input size
-
-            # ImageNet normalization (if using pretrained ViT)
-            Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-
-        # Simple [-1,1] normalization (for custom data)
-        # transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
-
-        with torch.no_grad():
-            u_i_image = vit_transform(u_i)
-            vit_embedding = vit_model(u_i_image)  # Extract ViT embeddings
-
-        return vit_embedding
-
 
     def init_layers(self, input_size, output_size, hidden_size, num_hidden):
         self.linear_layers.append(nn.Linear(input_size, hidden_size))
@@ -115,10 +88,7 @@ class ModulatedMLP(nn.Module):
         x = self.linear_layers[0](x)
         x = self.activation(x)
 
-
         # Compute modulation terms
-        z_expanded = self.z_i.expand(noPoints, -1)  # becomes noPoints x 1000, more memory efficient than repeat
-        mod_net_input = torch.cat([z_expanded, x], dim=1) # z_i + h_0
         modulation_terms = self.modulation_network(x)  # Shape: (batch_size, hidden_size * num_hidden)
         modulation_terms = torch.sigmoid(modulation_terms)
 
@@ -157,4 +127,3 @@ class ModulatedMLP(nn.Module):
         super(ModulatedMLP, self).to(device)
         self.lb = self.lb.to(device)
         self.ub = self.ub.to(device)
-        self.z_i = self.z_i.to(device)
