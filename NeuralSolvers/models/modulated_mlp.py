@@ -92,7 +92,7 @@ class ModulatedMLP(nn.Module):
         modulation_terms = self.modulation_network(x)  # Shape: (batch_size, hidden_size * num_hidden)
         modulation_terms = torch.sigmoid(modulation_terms)
 
-        modulation_terms = x+modulation_terms.view(-1, len(self.linear_layers) - 2, self.linear_layers[1].bias.size(0))
+        modulation_terms = modulation_terms.view(-1, len(self.linear_layers) - 2, self.linear_layers[1].bias.size(0))
 
         '''
         # Forward pass with bias modulation

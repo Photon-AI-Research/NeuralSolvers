@@ -158,8 +158,7 @@ Where:
 For example:
 
 ```bash
-cd benchmarks
-python benchmark_runner.py --system burgers --model MLP --epochs 1000
+python benchmarks/benchmark_runner.py --system burgers --model MLP --epochs 1000
 ```
 
 This command will train a PINN to solve the Burgers equation using an MLP architecture for 1000 epochs

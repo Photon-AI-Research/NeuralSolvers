@@ -148,11 +148,17 @@ CONFIGS = {
     "wave": {
         "name": "Wave Equation",
         "domain": np.array([[-1, 0.0], [1.0, 1.0]]),  # Spatial and temporal bounds
-        "initial_condition": lambda x: np.sin(np.pi * x),  # u(x, t=0)
         "pde_function": "wave1D",  # Identifier for the PDE function
-        "parameters": {
+        "pde_parameters": {
             "wave_speed": 1.0  # Wave propagation speed
         },
+        "num_collocation_points": 10000,
+        "initial_condition": {
+            "u0": lambda x: np.sin(np.pi * x),
+            "n0": 100,
+            "pretrain": True
+        },
+        "boundary_conditions": {},
         "model_args": {
             "input_size": 2,
             "output_size": 1,
@@ -170,7 +176,7 @@ MODELS = {
 
 # Additional parameters
 SYSTEM = {
-    "device": "cuda:0",
+    "device": "mps",
 }
 
 PDE_FUNCTIONS = {
