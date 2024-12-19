@@ -2,6 +2,7 @@ import argparse
 import importlib
 import numpy as np
 import torch
+import os
 import matplotlib.pyplot as plt
 
 from NeuralSolvers.pinn.datasets import BoundaryConditionDataset1D
@@ -126,7 +127,7 @@ def train_and_benchmark(system_name, model_name, num_epochs=1000):
     print(f"Finished training for {system_name} using {model_name}.")
     return pinn
 
-def plot_pinn_solution(pinn, system_name):
+def plot_pinn_solution(pinn, system_name, model_name, output_dir='results'):
     """
     Plot the solution predicted by the PINN.
 
@@ -146,13 +147,23 @@ def plot_pinn_solution(pinn, system_name):
 
     spatial_extent, output_dimensions = pred.shape
 
+
+    os.makedirs(output_dir, exist_ok=True)
+    np.save(os.path.join(output_dir, f"{system_name}_{model_name}_prediction.npy"), pred)
+    np.save(os.path.join(output_dir, f"{system_name}_{model_name}_coordinates.npy"), X_star)
+
+
     for i in range(output_dimensions):
         pred_i = pred[:,i].reshape(X.shape)
 
         plt.imshow(pred_i.T, origin='lower', extent=[t.min(), t.max(), x.min(), x.max()])
         plt.title(f"{system_name} Solution of Dimension {i}")
         plt.colorbar()
-        plt.show()
+
+        # Save the plot
+        filename = f"{system_name}_{model_name}_solution_dim_{i}.png"
+        plt.savefig(os.path.join(output_dir, filename))
+        plt.close()
 
     if(output_dimensions == 2):
         sol_u = pred[:,0].reshape(X.shape)
@@ -163,7 +174,9 @@ def plot_pinn_solution(pinn, system_name):
         plt.imshow(sol_pow.T, origin='lower', extent=[t.min(), t.max(), x.min(), x.max()])
         plt.title(f"{system_name} Solution (power)")
         plt.colorbar()
-        plt.show()
+        filename = f"{system_name}_{model_name}_solution_power.png"
+        plt.savefig(os.path.join(output_dir, filename))
+        plt.close()
 
 def main():
     # Argument parser to select system and model
@@ -180,7 +193,7 @@ def main():
 
     # Train and benchmark the selected system and model
     pinn = train_and_benchmark(system_name=args.system, model_name=args.model, num_epochs=args.epochs)
-    plot_pinn_solution(pinn, system_name=args.system)
+    plot_pinn_solution(pinn, system_name=args.system, model_name=args.model)
 
 if __name__ == "__main__":
     main()
