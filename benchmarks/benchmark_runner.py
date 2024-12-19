@@ -4,21 +4,15 @@ import numpy as np
 import torch
 import matplotlib.pyplot as plt
 
-from configs import CONFIGS, MODELS
-from NeuralSolvers import burgers1D, wave1D, schrodinger1D
+from NeuralSolvers.pinn.datasets import BoundaryConditionDataset1D
+from configs import CONFIGS, MODELS, SYSTEM, PDE_FUNCTIONS
 import NeuralSolvers as nsolv
-
-PDE_FUNCTIONS = {
-    "burgers1D": burgers1D,
-    "wave1D": wave1D,
-    "schrodinger1D": schrodinger1D
-}
 
 class InitialConditionDataset(torch.utils.data.Dataset):
     """Generalized Initial Condition Dataset."""
 
-    def __init__(self, n0, initial_func, device='cpu'):
-        x = np.linspace(-1, 1, n0)[:, None]
+    def __init__(self, n0, initial_func, domain, device='cpu'):
+        x = np.linspace(domain[0][0], domain[1][0], n0)[:, None]
         u0 = initial_func(x)
         self.X_u_train = torch.Tensor(np.hstack((x, np.zeros_like(x)))).to(device)
         self.u_train = torch.Tensor(u0).to(device)
@@ -59,33 +53,61 @@ def setup_pinn(system_name, model_name="MLP"):
     config = CONFIGS[system_name]
     domain = config["domain"]
 
-    # Dataset and PDE Loss
-    ic_dataset = InitialConditionDataset(
-        n0=100, initial_func=config["initial_condition"], device="mps"
-    )
+    device = SYSTEM['device']
+    boundary_conditions = config["boundary_conditions"]
+    pinn_boundary_conditions = []
+    for bc in boundary_conditions:
+        bc_vals = boundary_conditions[bc]
+        bc_dataset = BoundaryConditionDataset1D(nb=bc_vals['nb'], is_lower=bc_vals['is_lower'],
+                                                DOMAIN_UPPER_BOUND=domain[1], DOMAIN_LOWER_BOUND=domain[0],
+                                                device=device)
+        bc = nsolv.pinn.datasets.DirichletBC(bc_vals['func'], bc_dataset, name=bc)
+        pinn_boundary_conditions.append(bc)
+
+    if "custom_dataset" in config["initial_condition"]:
+        module_name, class_name = config["initial_condition"]["custom_dataset"].rsplit(".", 1)
+        module = importlib.import_module(module_name)
+        CustomDataset = getattr(module, class_name)
+        ic_dataset = CustomDataset(**config["initial_condition"]["parameters"], device=device)
+    else:
+        # Use the default InitialConditionDataset
+        ic_dataset = InitialConditionDataset(
+            n0=config["initial_condition"]['n0'],
+            initial_func=config["initial_condition"]['u0'],
+            domain=domain,
+            device=device
+        )
+
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name="IC")
+
+
+    # Use the PDE closure with params
+    pde_function = PDE_FUNCTIONS[config["pde_function"]](config["pde_parameters"])
+
+    # Geometry and PDE Loss
     pde_loss = nsolv.pinn.PDELoss(
-        nsolv.NDCube(domain[0], domain[1], 1000, 1000, nsolv.samplers.LHSSampler(), device="mps"),
-        PDE_FUNCTIONS[config["pde_function"]],
-        params=config["parameters"]
+        nsolv.NDCube(domain[0], domain[1], config["num_collocation_points"], config["num_collocation_points"],
+                    nsolv.samplers.LHSSampler(), device=device),
+                    pde_function,
+                    name = "PDE"
     )
 
     # Model Arguments
-    model_args = {
-        "input_size": 2,
-        "output_size": 1,
-        "hidden_size": 40,
-        "num_hidden": 8,
+    model_args = config["model_args"]
+    model_args.update({
         "lb": domain[0],
         "ub": domain[1],
-        "activation": torch.tanh,
-        "device": "mps"
-    }
+        "device": device
+    })
 
     # Load the selected model
     model = load_model(model_name, model_args)
 
     # Initialize PINN
-    return nsolv.PINN(model, 2, 1, pde_loss, nsolv.pinn.datasets.InitialCondition(ic_dataset))
+    return nsolv.PINN(model, 2, 1, pde_loss,
+                      nsolv.pinn.datasets.InitialCondition(ic_dataset, name = "IC"),
+                      pinn_boundary_conditions, device=device
+                      )
 
 def train_and_benchmark(system_name, model_name, num_epochs=1000):
     """
@@ -96,8 +118,11 @@ def train_and_benchmark(system_name, model_name, num_epochs=1000):
         model_name (str): Name of the model architecture.
         num_epochs (int): Number of training epochs.
     """
+    config = CONFIGS[system_name]
+
     pinn = setup_pinn(system_name, model_name)
-    pinn.fit(num_epochs)
+    pinn.fit(num_epochs, pretraining=config["initial_condition"]["pretrain"],
+             lbfgs_finetuning=False)
     print(f"Finished training for {system_name} using {model_name}.")
     return pinn
 
@@ -125,8 +150,8 @@ def main():
     # Argument parser to select system and model
     parser = argparse.ArgumentParser(description="PINN Benchmark Runner")
     parser.add_argument("--system", type=str, required=True,
-                        choices=["burgers", "wave", "schrodinger"],
-                        help="PDE system to solve: burgers, wave, schrodinger")
+                        choices=["burgers", "heat", "schrodinger", "wave"],
+                        help="PDE system to solve: burgers, heat, schrodinger,  wave,")
     parser.add_argument("--model", type=str, required=True,
                         choices=["MLP", "ModulatedMLP"],
                         help="Model architecture to use: MLP, ModulatedMLP, CustomMLP")
