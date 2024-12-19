@@ -1,6 +1,26 @@
+from torch.utils.data import Dataset
+
 from NeuralSolvers.LossTerm import LossTerm
 from torch.autograd import grad
-from torch import ones
+from torch import ones, Tensor
+import numpy as np
+
+
+class BoundaryConditionDataset1D(Dataset):
+    def __init__(self, nb, lower_bound, upper_bound, is_lower, device):
+        super().__init__()
+        max_t = 2
+        t = np.linspace(0, max_t, 200).flatten()[:, None]
+        idx_t = np.random.choice(t.shape[0], nb, replace=False)
+        tb = t[idx_t, :]
+        x_val = lower_bound[0] if is_lower else upper_bound[0]
+        self.x_b = Tensor(np.concatenate((np.full_like(tb, x_val), tb), 1)).float().to(device)
+
+    def __len__(self):
+        return 1
+
+    def __getitem__(self, idx):
+        return self.x_b
 
 
 class BoundaryCondition(LossTerm):

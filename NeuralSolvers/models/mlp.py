@@ -1,17 +1,26 @@
 import warnings
-
 import torch
 import torch.nn as nn
 
 
+def set_seed(seed=2342):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # for multi-GPU
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
 class MLP(nn.Module):
     def __init__(self, input_size, output_size, hidden_size, num_hidden, lb, ub, activation=torch.tanh, normalize=True, device='cpu'):
+        set_seed(2342)
         super(MLP, self).__init__()
         self.linear_layers = nn.ModuleList()
         self.activation = activation
         self.init_layers(input_size, output_size, hidden_size,num_hidden)
-        self.lb = torch.Tensor(lb).float()
-        self.ub = torch.Tensor(ub).float()
+        self.lb = torch.Tensor(lb).float().to(device)
+        self.ub = torch.Tensor(ub).float().to(device)
+        self.linear_layers.to(device)
         self.normalize = normalize
         self.device = device
 

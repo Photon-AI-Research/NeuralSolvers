@@ -599,6 +599,7 @@ class PINN(nn.Module):
             if avg_pinn_loss < minimum_pinn_loss and save_model:
                 self.save_model(pinn_path, hpm_path)
                 minimum_pinn_loss = avg_pinn_loss
+                self.minimum_pinn_loss = minimum_pinn_loss
 
             self._reset_loss_log()
 

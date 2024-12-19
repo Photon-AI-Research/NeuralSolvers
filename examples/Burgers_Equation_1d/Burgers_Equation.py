@@ -98,7 +98,7 @@ def load_burger_data(file_path: str = 'burgers_shock.mat'):
     return t, x, exact_solution
 
 
-def setup_pinn(file_path: str = 'burgers_shock.mat'):
+def setup_pinn(model = None, file_path: str = 'burgers_shock.mat'):
     """Set up and return a Physics Informed Neural Network (PINN) for solving 1D Burgers equation.
 
      Creates a PINN with:
@@ -130,19 +130,20 @@ def setup_pinn(file_path: str = 'burgers_shock.mat'):
      """
 
     ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS, device=DEVICE, file_path=file_path)
-    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition loss')
+    initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition')
 
     sampler = nsolv.samplers.LHSSampler()
     geometry = nsolv.NDCube(DOMAIN_LOWER_BOUND, DOMAIN_UPPER_BOUND, NUM_COLLOCATION_POINTS, NUM_COLLOCATION_POINTS,
                             sampler, device=DEVICE)
 
-    pde_loss = nsolv.pinn.PDELoss(geometry, burger1D, name='PDE loss')
+    pde_loss = nsolv.pinn.PDELoss(geometry, burger1D, name='PDE')
 
-    model = nsolv.models.mlp.MLP(
-        input_size=2, output_size=1, device=DEVICE,
-        hidden_size=40, num_hidden=8, lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND,
-        activation=torch.tanh
-    )
+    if(model is None):
+        model = nsolv.models.mlp.MLP(
+            input_size=2, output_size=1, device=DEVICE,
+            hidden_size=40, num_hidden=8, lb=DOMAIN_LOWER_BOUND, ub=DOMAIN_UPPER_BOUND,
+            activation=torch.tanh
+        )
 
     return nsolv.PINN(model, 2, 1, pde_loss, initial_condition, [], device=DEVICE)
 

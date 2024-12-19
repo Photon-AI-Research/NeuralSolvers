@@ -136,9 +136,56 @@ pinn = nsolv.PINN(
 pinn.fit(epochs=10000, optimizer='Adam', lr=1e-3)
 ```
 
-## 4. Advanced features
+## 4. Benchmark runner
 
-### 4.1. Deep HPM support 
+Neural Solvers includes a benchmark runner that allows you to easily compare different PDE solvers and model architectures. This tool is particularly useful for evaluating the performance of various configurations across different types of PDEs.
+
+### 4.1. Using the Benchmark Runner
+
+The benchmark runner is located in the `benchmarks` directory and can be run from the command line. Here's how to use it:
+
+```bash
+python benchmarks/benchmark_runner.py --system <pde_system> --model <model_architecture> --epochs <num_epochs>
+
+```
+
+Where:
+
+- `<pde_system>` can be one of: "burgers", "heat", "schrodinger", or "wave"
+- `<model_architecture>` can be either "MLP" or "ModulatedMLP"
+- `<num_epochs>` is the number of training epochs (default is 1000)
+
+For example:
+
+```bash
+cd benchmarks
+python benchmark_runner.py --system burgers --model MLP --epochs 1000
+```
+
+This command will train a PINN to solve the Burgers equation using an MLP architecture for 1000 epochs
+
+### 4.2. Configuring Benchmarks
+
+The benchmark configurations are defined in `benchmarks/configs.py`. Each PDE system has its own configuration, including:
+
+- Domain boundaries
+- PDE function and parameters
+- Initial and boundary conditions
+- Model architecture details
+
+You can modify these configurations or add new ones to test different scenarios.
+
+### 4.3. Visualizing Results
+After training, the benchmark runner will automatically plot the solution predicted by the PINN. This allows for quick visual inspection of the results.
+
+### 4.4. Extending the Benchmark Runner
+The benchmark runner is designed to be extensible. You can add new PDE systems, model architectures, or evaluation metrics by modifying the appropriate files in the benchmarks directory.
+
+This benchmarking tool provides a standardized way to compare different approaches and configurations, making it easier to evaluate and improve your PDE solving techniques using Neural Solvers.
+
+## 5. Advanced features
+
+### 5.1. Deep HPM support 
 
 Instead of a PDE loss you can use a HPM model. The HPM model needs a function derivatives that calculates the needed derivatives, while the last returned derivative is the time_derivative.
 You can use the HPM loss a follows. 
@@ -162,7 +209,7 @@ pinn = nsolv.PINN(model, input_size=2, output_size=2 ,pde_loss = hpm_loss, initi
 ```
 
 
-### 4.2. Horovod support
+### 5.2. Horovod support
 Enable distributed training with Horovod:
 
 ```python
@@ -171,7 +218,7 @@ pinn = nsolv.PINN(..., use_horovod=True)
 
 Note: LBFGS optimizer is not supported with Horovod.
 
-### 4.3. Logging
+### 5.3. Logging
 Use Wandb or TensorBoard for logging:
 
 ```python
@@ -184,7 +231,7 @@ logger = nsolv.TensorBoardLogger(log_directory)
 pinn.fit(epochs=5000, logger=logger)
 ```
 
-### 4.4 Adaptive Sampling
+### 5.4 Adaptive Sampling
 
 Neural Solvers now supports adaptive sampling to focus computational resources on regions of high error:
 
@@ -194,7 +241,7 @@ geometry = nsolv.NDCube(lb, ub, num_points, num_points, sampler, device=device)
 ```
 
 
-### 4.5 Implemented Approaches:
+### 5.5 Implemented Approaches:
 
 - P. Stiller, F. Bethke, M. Böhme, R. Pausch, S. Torge, A. Debus, J. Vorberger, M.Bussmann, N. Hoffmann: 
 Large-scale Neural Solvers for Partial Differential Equations (2020).
@@ -217,7 +264,7 @@ Understanding and mitigating gradient pathologies in physics-informed neural net
 efficient training of physics-informed neural networks via importance sampling
 
 
-## 5. Citation
+## 6. Citation
 If you use Neural Solvers in your research, please cite:
 
 ```
@@ -226,14 +273,10 @@ Large-scale Neural Solvers for Partial Differential Equations (2020).
 ```
 
 
-## 6. Developers
+## 7. Develoeprs
 
-### Scientific Supervision
-Nico Hoffmann (HZDR)
-
-### Core Developers 
-Patrick Stiller (HZDR) <br/>
-Maksim Zhdanov (HZDR)<br/>
-Jeyhun Rustamov (HZDR) <br/>
-Nico Hoffmann (HZDR) <br/>
-Raj Dhansukhbhai Sutariya (HZDR) <br/>
+- Nico Hoffmann (SAXONY.ai) <br/>
+- Patrick Stiller (HZDR) <br/>
+- Maksim Zhdanov (HZDR)<br/>
+- Jeyhun Rustamov (HZDR) <br/>
+- Raj Dhansukhbhai Sutariya (HZDR) <br/>

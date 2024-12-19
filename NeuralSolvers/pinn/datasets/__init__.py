@@ -3,6 +3,7 @@ from .BoundaryCondition import DirichletBC
 from .BoundaryCondition import RobinBC
 from .BoundaryCondition import TimeDerivativeBC
 from .BoundaryCondition import NeumannBC
+from .BoundaryCondition import BoundaryConditionDataset1D
 from .InitalCondition import InitialCondition
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     'DirichletBC',
     'RobinBC',
     'NeumannBC',
-    'TimeDerivativeBC'
+    'TimeDerivativeBC',
+    'BoundaryConditionDataset1D'
     ]
