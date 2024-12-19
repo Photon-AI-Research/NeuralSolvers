@@ -7,21 +7,7 @@ import matplotlib.pyplot as plt
 from NeuralSolvers.pinn.datasets import BoundaryConditionDataset1D
 from configs import CONFIGS, MODELS, SYSTEM, PDE_FUNCTIONS
 import NeuralSolvers as nsolv
-
-class InitialConditionDataset(torch.utils.data.Dataset):
-    """Generalized Initial Condition Dataset."""
-
-    def __init__(self, n0, initial_func, domain, device='cpu'):
-        x = np.linspace(domain[0][0], domain[1][0], n0)[:, None]
-        u0 = initial_func(x)
-        self.X_u_train = torch.Tensor(np.hstack((x, np.zeros_like(x)))).to(device)
-        self.u_train = torch.Tensor(u0).to(device)
-
-    def __len__(self):
-        return 1
-
-    def __getitem__(self, idx):
-        return self.X_u_train.float(), self.u_train.float()
+from datasets import InitialConditionDataset
 
 def load_model(model_name, model_args):
     """
@@ -52,16 +38,30 @@ def setup_pinn(system_name, model_name="MLP"):
     """
     config = CONFIGS[system_name]
     domain = config["domain"]
-
     device = SYSTEM['device']
     boundary_conditions = config["boundary_conditions"]
     pinn_boundary_conditions = []
     for bc in boundary_conditions:
         bc_vals = boundary_conditions[bc]
-        bc_dataset = BoundaryConditionDataset1D(nb=bc_vals['nb'], is_lower=bc_vals['is_lower'],
-                                                DOMAIN_UPPER_BOUND=domain[1], DOMAIN_LOWER_BOUND=domain[0],
-                                                device=device)
-        bc = nsolv.pinn.datasets.DirichletBC(bc_vals['func'], bc_dataset, name=bc)
+
+        if "custom_dataset" in bc_vals:
+            module_name, class_name = bc_vals["custom_dataset"].rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            CustomDataset = getattr(module, class_name)
+            bc_dataset = CustomDataset(**bc_vals["custom_dataset_parameters"], lower_bound=domain[0], upper_bound=domain[1], device=device)
+        else:
+            bc_dataset = BoundaryConditionDataset1D(nb=bc_vals['nb'], is_lower=bc_vals['is_lower'],
+                                                    lower_bound=domain[0], upper_bound=domain[1],
+                                                    device=device)
+
+        if "custom_boundary" in bc_vals:
+            module_name, class_name = bc_vals["custom_boundary"].rsplit(".", 1)
+            module = importlib.import_module(module_name)
+            CustomDataset = getattr(module, class_name)
+            bc = CustomDataset(**bc_vals["custom_boundary_parameters"], dataset=bc_dataset)
+        else:
+            bc = nsolv.pinn.datasets.DirichletBC(bc_vals['func'], bc_dataset, name=bc)
+
         pinn_boundary_conditions.append(bc)
 
     if "custom_dataset" in config["initial_condition"]:
@@ -104,8 +104,8 @@ def setup_pinn(system_name, model_name="MLP"):
     model = load_model(model_name, model_args)
 
     # Initialize PINN
-    return nsolv.PINN(model, 2, 1, pde_loss,
-                      nsolv.pinn.datasets.InitialCondition(ic_dataset, name = "IC"),
+    return nsolv.PINN(model, model_args["input_size"], model_args["output_size"], pde_loss,
+                      initial_condition,
                       pinn_boundary_conditions, device=device
                       )
 
@@ -140,11 +140,30 @@ def plot_pinn_solution(pinn, system_name):
     X, T = np.meshgrid(x, t)
     X_star = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
 
-    pred = pinn(torch.Tensor(X_star).to("mps")).detach().cpu().numpy().reshape(X.shape)
-    plt.imshow(pred.T, origin='lower', extent=[t.min(), t.max(), x.min(), x.max()])
-    plt.title(f"{system_name} Solution")
-    plt.colorbar()
-    plt.show()
+    pred = pinn(torch.Tensor(X_star).to(SYSTEM['device'])).detach().cpu().numpy()
+    # check pred if it got multiple output dimensions (eg. real+imaginary part)
+    #.reshape(X.shape))
+
+    spatial_extent, output_dimensions = pred.shape
+
+    for i in range(output_dimensions):
+        pred_i = pred[:,i].reshape(X.shape)
+
+        plt.imshow(pred_i.T, origin='lower', extent=[t.min(), t.max(), x.min(), x.max()])
+        plt.title(f"{system_name} Solution of Dimension {i}")
+        plt.colorbar()
+        plt.show()
+
+    if(output_dimensions == 2):
+        sol_u = pred[:,0].reshape(X.shape)
+        sol_v = pred[:, 1].reshape(X.shape)
+
+        sol_pow = np.sqrt(sol_u ** 2 + sol_v ** 2)
+
+        plt.imshow(sol_pow.T, origin='lower', extent=[t.min(), t.max(), x.min(), x.max()])
+        plt.title(f"{system_name} Solution (power)")
+        plt.colorbar()
+        plt.show()
 
 def main():
     # Argument parser to select system and model

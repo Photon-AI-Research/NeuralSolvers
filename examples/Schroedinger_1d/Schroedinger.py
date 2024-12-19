@@ -36,7 +36,7 @@ def schroedinger1d(x, u):
 
 
 class InitialConditionDataset(Dataset):
-    def __init__(self, n0, file_path = 'NLS.mat'):
+    def __init__(self, n0, file_path = 'NLS.mat',device="cpu"):
         super().__init__()
         data = scipy.io.loadmat(file_path)
         x = data['x'].flatten()[:, None]
@@ -44,10 +44,10 @@ class InitialConditionDataset(Dataset):
         Exact_u = np.real(Exact)
         Exact_v = np.imag(Exact)
         idx_x = np.random.choice(x.shape[0], n0, replace=False)
-        self.x = Tensor(x[idx_x, :]).to(DEVICE).float()
-        self.u = Tensor(Exact_u[idx_x, 0:1]).to(DEVICE).float()
-        self.v = Tensor(Exact_v[idx_x, 0:1]).to(DEVICE).float()
-        self.t = Tensor(np.zeros(self.x.shape)).to(DEVICE).float()
+        self.x = Tensor(x[idx_x, :]).to(device).float()
+        self.u = Tensor(Exact_u[idx_x, 0:1]).to(device).float()
+        self.v = Tensor(Exact_v[idx_x, 0:1]).to(device).float()
+        self.t = Tensor(np.zeros(self.x.shape)).to(device).float()
 
     def __len__(self):
         return 1
@@ -60,16 +60,16 @@ class InitialConditionDataset(Dataset):
 
 
 class BoundaryConditionDataset(Dataset):
-    def __init__(self, nb, file_path = 'NLS.mat'):
+    def __init__(self, nb, lower_bound, upper_bound, file_path = 'NLS.mat', device = "cpu"):
         super().__init__()
         data = scipy.io.loadmat(file_path)
         t = data['tt'].flatten()[:, None]
         idx_t = np.random.choice(t.shape[0], nb, replace=False)
         tb = t[idx_t, :]
-        self.x_lb = np.concatenate((np.full_like(tb, DOMAIN_LOWER_BOUND[0]), tb), 1)
-        self.x_ub = np.concatenate((np.full_like(tb, DOMAIN_UPPER_BOUND[0]), tb), 1)
-        self.x_lb = Tensor(self.x_lb).float().to(DEVICE)
-        self.x_ub = Tensor(self.x_ub).float().to(DEVICE)
+        self.x_lb = np.concatenate((np.full_like(tb, lower_bound[0]), tb), 1)
+        self.x_ub = np.concatenate((np.full_like(tb, upper_bound[0]), tb), 1)
+        self.x_lb = Tensor(self.x_lb).float().to(device)
+        self.x_ub = Tensor(self.x_ub).float().to(device)
 
     def __len__(self):
         return 1
@@ -79,10 +79,11 @@ class BoundaryConditionDataset(Dataset):
 
 
 def setup_pinn(file_path = 'NLS.mat', model = None):
-    ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS,file_path=file_path)
+    ic_dataset = InitialConditionDataset(n0=NUM_INITIAL_POINTS,file_path=file_path, device=DEVICE)
     initial_condition = nsolv.pinn.datasets.InitialCondition(ic_dataset, name='Initial Condition loss')
 
-    bc_dataset = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS,file_path=file_path)
+    bc_dataset = BoundaryConditionDataset(nb=NUM_BOUNDARY_POINTS,file_path=file_path,
+                                          lower_bound=DOMAIN_LOWER_BOUND,upper_bound=DOMAIN_UPPER_BOUND,device=DEVICE)
     periodic_bc_u = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 0, "u periodic boundary condition")
     periodic_bc_v = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 1, "v periodic boundary condition")
     periodic_bc_u_x = nsolv.pinn.datasets.PeriodicBC(bc_dataset, 0, "u_x periodic boundary condition", 1, 0)

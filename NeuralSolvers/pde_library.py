@@ -14,6 +14,11 @@ def burgers1D(params):
         grads_x = ones(u_x.shape, device=u.device)
         u_xx = grad(grad_u[:, 0], x, create_graph=True, grad_outputs=grads_x)[0][:, 0]
 
+        # reshape for correct behavior of the optimizer
+        u_x = u_x.reshape(-1, 1)
+        u_t = u_t.reshape(-1, 1)
+        u_xx = u_xx.reshape(-1, 1)
+
         return u_t + u * u_x - viscosity * u_xx
 
     return pde

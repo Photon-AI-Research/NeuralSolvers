@@ -7,7 +7,7 @@ import numpy as np
 import torch
 import scipy
 
-DEVICE = 'mps'
+DEVICE = 'cuda'
 NUM_EPOCHS = 1000  # 50000
 DOMAIN_LOWER_BOUND = np.array([-1, 0.0])
 DOMAIN_UPPER_BOUND = np.array([1.0, 1.0])
@@ -33,7 +33,7 @@ def run_benchmarks():
     '''
     print("*** Burgers Equation ***")
 
-    DEVICE = 'mps'
+    DEVICE = 'cuda'
     DOMAIN_LOWER_BOUND = np.array([-1, 0.0])
     DOMAIN_UPPER_BOUND = np.array([1.0, 1.0])
     model = ModulatedMLP(
