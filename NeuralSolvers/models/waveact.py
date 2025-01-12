@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 
+
 class WaveAct(nn.Module):
     def __init__(self):
         super(WaveAct, self).__init__()

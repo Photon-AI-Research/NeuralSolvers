@@ -6,6 +6,8 @@ from .Finger_Net import FingerNet
 from .moe_finger import MoE as FingerMoE
 from .pennesmodel import PennesHPM
 from .modulated_mlp import ModulatedMLP
+from .transformers import PINNsFormer
+from .waveact import WaveAct
 from . import activations
 
 __all__ = [
@@ -17,7 +19,8 @@ __all__ = [
     'FingerMoE',
     'activations',
     'PennesHPM',
-    'ModulatedMLP'
-    
+    'ModulatedMLP',
+    'PINNsFormer',
+    'WaveAct'
 ]
 

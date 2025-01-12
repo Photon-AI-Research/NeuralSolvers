@@ -3,7 +3,10 @@ from logging import Logger
 import torch
 import torch.nn as nn
 import copy
-from .waveact import WaveAct
+
+from NeuralSolvers.models.waveact import WaveAct
+
+
 
 def set_seed(seed=2342):
     torch.manual_seed(seed)
@@ -116,20 +119,17 @@ class PINNsFormer(nn.Module):
             nn.Linear(hidden_size, output_size)
         ])
 
-
+        '''
         self.init_layers(input_size, output_size, hidden_size,num_hidden)
         self.lb = torch.Tensor(lb).float().to(device)
         self.ub = torch.Tensor(ub).float().to(device)
         self.linear_layers.to(device)
         self.normalize = normalize
         self.device = device
+        '''
 
     def forward(self, x):
-        x,t = x
-
-        src = torch.cat((x,t), dim=-1)
-        src = self.linear_emb(src)
-
+        src = self.linear_emb(x)
         e_outputs = self.encoder(src)
         d_output = self.decoder(src, e_outputs)
         output = self.linear_out(d_output)
